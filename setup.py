@@ -21,20 +21,25 @@ def get_requires():
 def main():
 
     setup(
-        name="llmtuner",
+        name="bisheng-ft",
         version=get_version(),
-        author="hiyouga",
-        author_email="hiyouga" "@" "buaa.edu.cn",
+        author="gulixin",
+        author_email="gulixin" "@" "dataelem.com",
         description="Easy-to-use LLM fine-tuning framework",
         long_description=open("README.md", "r", encoding="utf-8").read(),
         long_description_content_type="text/markdown",
         keywords=["LLaMA", "BLOOM", "Falcon", "LLM", "ChatGPT", "transformer", "pytorch", "deep learning"],
         license="Apache 2.0 License",
-        url="https://github.com/hiyouga/LLaMA-Factory",
+        url="https://github.com/dataelement/bisheng-ft",
         package_dir={"": "src"},
         packages=find_packages("src"),
         python_requires=">=3.8.0",
         install_requires=get_requires(),
+        entry_points={
+            "console_scripts": [
+                "bisheng_ft = llmtuner.wrapers.interface:main",
+            ]
+        },
         classifiers=[
             "Development Status :: 3 - Alpha",
             "Intended Audience :: Developers",
