@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING, Optional, List
 from transformers import DataCollatorForSeq2Seq, Seq2SeqTrainingArguments
 
-from llmtuner.dsets import get_dataset, preprocess_dataset, split_dataset
+from llmtuner.dsets import get_dataset, get_dataset_v2, preprocess_dataset, split_dataset
 from llmtuner.extras.constants import IGNORE_INDEX
 from llmtuner.extras.misc import get_logits_processor
 from llmtuner.extras.ploting import plot_loss
@@ -24,7 +24,8 @@ def run_sft(
     generating_args: "GeneratingArguments",
     callbacks: Optional[List["TrainerCallback"]] = None
 ):
-    dataset = get_dataset(model_args, data_args)
+    # dataset = get_dataset(model_args, data_args)
+    dataset = get_dataset_v2(model_args, data_args)
     model, tokenizer = load_model_and_tokenizer(model_args, finetuning_args, training_args.do_train, stage="sft")
     dataset = preprocess_dataset(dataset, tokenizer, data_args, training_args, stage="sft")
 
@@ -44,18 +45,6 @@ def run_sft(
         generation_num_beams=data_args.eval_num_beams or training_args.generation_num_beams
     ))
     training_args = Seq2SeqTrainingArguments(**training_args_dict)
-
-    # # split_dataset
-    # if training_args.do_train or training_args.do_eval:
-    #     train_val_datasets = split_dataset(dataset, data_args, training_args)
-    #     if "train_dataset" in train_val_datasets:
-    #         train_val_datasets["train_dataset"] = preprocess_dataset(
-    #             train_val_datasets["train_dataset"], tokenizer, data_args, training_args, stage="sft", is_train_dataset=True)
-    #     if "eval_dataset" in train_val_datasets:
-    #         train_val_datasets["eval_dataset"] = preprocess_dataset(
-    #             train_val_datasets["eval_dataset"], tokenizer, data_args, training_args, stage="sft", is_train_dataset=False)
-    # else:
-    #      dataset = preprocess_dataset(dataset, tokenizer, data_args, training_args, stage="sft")
 
     # Initialize our Trainer
     trainer = CustomSeq2SeqTrainer(

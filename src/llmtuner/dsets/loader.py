@@ -143,3 +143,67 @@ def get_dataset(
         )
     else:
         raise ValueError("Unknown mixing strategy.")
+
+
+def get_dataset_v2(
+    model_args: "ModelArguments",
+    data_args: "DataArguments"
+) -> Union["Dataset", "IterableDataset"]:
+    max_samples = data_args.max_samples
+    all_datasets: List[Union["Dataset", "IterableDataset"]] = [] # support multiple datasets
+
+    for dataset_attr in data_args.dataset_list:
+        logger.info("Loading dataset {}...".format(dataset_attr))
+        if dataset_attr.load_from == "file":
+            data_path, data_name = None, None
+            data_files: List[str] = []
+            data_files.append(dataset_attr.dataset_name)
+            data_path = EXT2TYPE.get(dataset_attr.dataset_name.split(".")[-1], None)
+
+            assert data_path, "File extension must be txt, csv, json or jsonl."
+        else:
+            raise NotImplementedError
+
+        dataset = load_dataset(
+            path=data_path,
+            name=data_name,
+            data_files=data_files,
+            split=data_args.split,
+            cache_dir=model_args.cache_dir,
+            token=model_args.hf_hub_token,
+            streaming=data_args.streaming
+        )
+
+        if max_samples is not None: # truncate dataset
+            dataset = dataset.select(range(min(len(dataset), max_samples)))
+
+        for column_name in ["prompt", "query", "response", "history"]: # align dataset
+            if getattr(dataset_attr, column_name) and getattr(dataset_attr, column_name) != column_name:
+                dataset = dataset.rename_column(getattr(dataset_attr, column_name), column_name)
+
+        if dataset_attr.system_prompt: # add system prompt
+            system_prompt = dataset_attr.system_prompt
+            if data_args.streaming:
+                dataset = dataset.map(lambda _: {"system": system_prompt})
+            else:
+                dataset = dataset.add_column("system", [system_prompt] * len(dataset))
+
+        all_datasets.append(dataset)
+
+    if len(data_args.dataset_list) == 1:
+        return all_datasets[0]
+    elif data_args.mix_strategy == "concat":
+        if data_args.streaming:
+            logger.warning("The samples between different datasets will not be mixed in streaming mode.")
+        return concatenate_datasets(all_datasets)
+    elif data_args.mix_strategy.startswith("interleave"):
+        if not data_args.streaming:
+            logger.warning("We recommend using `mix_strategy=concat` in non-streaming mode.")
+        return interleave_datasets(
+            datasets=all_datasets,
+            probabilities=data_args.interleave_probs,
+            seed=data_args.seed,
+            stopping_strategy="first_exhausted" if data_args.mix_strategy.endswith("under") else "all_exhausted"
+        )
+    else:
+        raise ValueError("Unknown mixing strategy.")

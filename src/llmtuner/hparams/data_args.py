@@ -167,3 +167,38 @@ class DataArguments:
             dataset_attr.formatting = dataset_info[name].get("formatting", "alpaca")
             dataset_attr.system_prompt = prompt_list[i]
             self.dataset_list.append(dataset_attr)
+        
+    def init_for_training_v2(self, seed: int): # support mixing multiple datasets
+        self.seed = seed
+        dataset_names = [ds.strip() for ds in self.dataset.split(",")] if self.dataset is not None else []
+        if self.dataset is None:
+            raise ValueError("No dataset. Please specify `dataset` in param.")
+    
+        prompt_list = self.system_prompt.split("|") if self.system_prompt else [None]
+        prompt_list = prompt_list * (len(dataset_names) // len(prompt_list))
+        assert len(prompt_list) == len(dataset_names), "Number of system prompts should be equal to datasets or 1."
+
+        if self.interleave_probs is not None:
+            self.interleave_probs = [float(prob.strip()) for prob in self.interleave_probs.split(",")]
+
+        self.dataset_list: List[DatasetAttr] = []
+        for i, name in enumerate(dataset_names):
+            dataset_attr = DatasetAttr(
+                "file",
+                dataset_name=name,
+                dataset_sha1=None
+            )
+
+            dataset_attr.prompt = "instruction"
+            dataset_attr.query = "input"
+            dataset_attr.response = "output"
+            dataset_attr.history = "history"
+            dataset_attr.messages = None
+            dataset_attr.role = None
+            dataset_attr.content = None
+
+            dataset_attr.subset = None
+            dataset_attr.ranking = False
+            dataset_attr.formatting = "alpaca"
+            dataset_attr.system_prompt = prompt_list[i]
+            self.dataset_list.append(dataset_attr)

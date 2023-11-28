@@ -32,6 +32,7 @@ def trval_main(args):
     dataset = args.dataset
     output_dir = args.output_dir
     val_ratio = args.val_ratio
+    max_samples = args.max_samples 
     finetuning_type = args.finetuning_type
     per_device_train_batch_size = args.per_device_train_batch_size
     learning_rate = args.learning_rate
@@ -55,9 +56,7 @@ def trval_main(args):
 --finetuning_type {finetuning_type} \
 --model_name_or_path {model_name_or_path} \
 --template {base_config['template']} \
---dataset_dir data \
 --dataset {dataset} \
---max_samples 5000 \
 --val_size {val_ratio} \
 --output_dir {output_dir} \
 --overwrite_output_dir \
@@ -77,6 +76,8 @@ def trval_main(args):
 --fp16 True \
 --plot_loss True \
 '''
+    if max_samples is not None:
+        train_params_cmd += f'''--max_samples {max_samples} \\'''
    
     export_params_cmd = f'''
 --model_name_or_path {model_name_or_path} \
@@ -92,7 +93,6 @@ def trval_main(args):
 --finetuning_type full \
 --model_name_or_path {model_name_or_path} \
 --template {base_config['template']} \
---dataset_dir data \
 --dataset {dataset} \
 --max_samples 100 \
 --checkpoint_dir {output_dir} \
