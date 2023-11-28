@@ -45,6 +45,18 @@ def run_sft(
     ))
     training_args = Seq2SeqTrainingArguments(**training_args_dict)
 
+    # # split_dataset
+    # if training_args.do_train or training_args.do_eval:
+    #     train_val_datasets = split_dataset(dataset, data_args, training_args)
+    #     if "train_dataset" in train_val_datasets:
+    #         train_val_datasets["train_dataset"] = preprocess_dataset(
+    #             train_val_datasets["train_dataset"], tokenizer, data_args, training_args, stage="sft", is_train_dataset=True)
+    #     if "eval_dataset" in train_val_datasets:
+    #         train_val_datasets["eval_dataset"] = preprocess_dataset(
+    #             train_val_datasets["eval_dataset"], tokenizer, data_args, training_args, stage="sft", is_train_dataset=False)
+    # else:
+    #      dataset = preprocess_dataset(dataset, tokenizer, data_args, training_args, stage="sft")
+
     # Initialize our Trainer
     trainer = CustomSeq2SeqTrainer(
         model=model,

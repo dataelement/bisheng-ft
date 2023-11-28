@@ -32,7 +32,7 @@ def main():
     trval_parser.add_argument(
         '--gpus', help='gpus to use: 0,1,2,3', default='0', type=str)
     trval_parser.add_argument(
-        '--cpu_load', help='if gpu memory is not enough params and optimizer in cpu', default=False, type=bool)
+        '--cpu_load', help='if gpu memory is not enough params and optimizer in cpu', action='store_true')
     
     args = parser.parse_args()
     try:
