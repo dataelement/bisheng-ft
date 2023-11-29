@@ -1,4 +1,4 @@
-torch>=1.13.1
+torch==1.13.1
 transformers>=4.31.0,<4.35.0
 datasets>=2.14.0
 accelerate>=0.21.0
@@ -18,3 +18,5 @@ pydantic
 fastapi
 sse-starlette
 matplotlib
+einops
+transformers_stream_generator
