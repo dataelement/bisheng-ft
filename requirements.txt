@@ -20,3 +20,4 @@ sse-starlette
 matplotlib
 einops
 transformers_stream_generator
+deepspeed==0.12.5
