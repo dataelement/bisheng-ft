@@ -7,12 +7,12 @@ run_qwen_deepspeed_full() {
     --finetuning_type full \
     --template qwen \
     --dataset /home/gulixin/workspace/llm/projects/yuxin/workspace/train_samples.json \
-    --cutoff_len 1024 \
+    --cutoff_len 8192 \
     --learning_rate 5e-05 \
-    --per_device_train_batch_size 4 \
-    --gradient_accumulation_steps 1 \
+    --per_device_train_batch_size 1 \
+    --gradient_accumulation_steps 4 \
     --lr_scheduler_type cosine \
-    --output_dir saves/Qwen-1_8B-Chat/full/qwen-1_8b-yuxin-deepspeed-full \
+    --output_dir saves/Qwen-1_8B-Chat/full/qwen-1_8b-yuxin-deepspeed-full-8192 \
     --overwrite_output_dir \
     --num_train_epochs 3.0 \
     --logging_steps 10 \
@@ -30,14 +30,15 @@ run_predict_qwen_full() {
     --stage sft \
     --model_name_or_path saves/Qwen-1_8B-Chat/full/qwen-1_8b-yuxin-deepspeed-full \
     --do_predict \
-    --dataset /home/gulixin/workspace/llm/projects/yuxin/workspace/train_samples.json \
+    --dataset /home/gulixin/workspace/llm/projects/yuxin/workspace/test_samples.json \
+    --cutoff_len 8192 \
     --template qwen \
     --finetuning_type full \
-    --output_dir saves/Qwen-1_8B-Chat/full/qwen-1_8b-yuxin-deepspeed-full \
+    --output_dir saves/Qwen-1_8B-Chat/full/qwen-1_8b-yuxin-deepspeed-full-8192 \
     --per_device_eval_batch_size 1 \
     --predict_with_generate \
     --fp16 True
 }
 
-# run_qwen_deepspeed_full
-run_predict_qwen_full
+run_qwen_deepspeed_full
+# run_predict_qwen_full
