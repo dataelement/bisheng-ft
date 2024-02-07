@@ -8,4 +8,9 @@ function package() {
     twine upload --verbose -u deploy -p kDNubrlaK6n6RtzN --repository-url $repo dist/*.whl
 }
 
+function download() {
+    pip install bisheng-ft -i https://public:26rS9HRxDqaVy5T@nx.dataelem.com/repository/pypi-hosted/simple
+}
+
 package
+# download

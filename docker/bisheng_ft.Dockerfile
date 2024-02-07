@@ -1,6 +1,6 @@
 FROM nvcr.io/nvidia/pytorch:22.08-py3
 
-ARG PIP_REPO=https://mirrors.tencent.com/pypi/simple
+ARG PIP_REPO=https://pypi.tuna.tsinghua.edu.cn/simple
 ARG EXTR_PIP_REPO="http://public:26rS9HRxDqaVy5T@110.16.193.170:50083/repository/pypi-hosted/simple --trusted-host 110.16.193.170"
 ARG BISHENG_FT_VER=0.0.1
 
@@ -23,6 +23,7 @@ WORKDIR /opt/bisheng-ft
 
 # 安装bisheng-ft依赖
 RUN ln -s /usr/local/bin/pip3 /usr/bin/pip3.8
+RUN pip install --upgrade pip
 COPY ./requirements.txt /opt/bisheng-ft
 RUN pip install -r requirements.txt -i $PIP_REPO
 
