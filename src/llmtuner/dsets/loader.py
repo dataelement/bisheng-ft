@@ -150,9 +150,11 @@ def get_dataset_v2(
     data_args: "DataArguments"
 ) -> Union["Dataset", "IterableDataset"]:
     max_samples = data_args.max_samples
+    each_max_samples = data_args.each_max_samples
+    each_max_samples = [int(ds.strip()) for ds in each_max_samples.split(",")] if each_max_samples is not None else None
     all_datasets: List[Union["Dataset", "IterableDataset"]] = [] # support multiple datasets
 
-    for dataset_attr in data_args.dataset_list:
+    for index, dataset_attr in enumerate(data_args.dataset_list):
         logger.info("Loading dataset {}...".format(dataset_attr))
         if dataset_attr.load_from == "file":
             data_path, data_name = None, None
@@ -175,8 +177,12 @@ def get_dataset_v2(
         )
 
         if max_samples is not None: # truncate dataset
-            dataset = dataset.select(range(min(len(dataset), max_samples)))
-
+            if max_samples != 0:
+                dataset = dataset.select(range(min(len(dataset), max_samples)))
+        elif each_max_samples is not None:
+            if each_max_samples[index] != 0:
+                dataset = dataset.select(range(min(len(dataset), each_max_samples[index])))
+        
         for column_name in ["prompt", "query", "response", "history"]: # align dataset
             if getattr(dataset_attr, column_name) and getattr(dataset_attr, column_name) != column_name:
                 dataset = dataset.rename_column(getattr(dataset_attr, column_name), column_name)

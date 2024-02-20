@@ -1,7 +1,9 @@
 import os
+import sys
 import glob
 import shutil
 import random
+import subprocess
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 model_config = {
@@ -32,7 +34,7 @@ def trval_main(args):
     dataset = args.dataset
     output_dir = args.output_dir
     val_ratio = args.val_ratio
-    max_samples = args.max_samples 
+    each_max_samples = args.each_max_samples 
     finetuning_type = args.finetuning_type
     per_device_train_batch_size = args.per_device_train_batch_size
     learning_rate = args.learning_rate
@@ -49,7 +51,7 @@ def trval_main(args):
     
     base_config = model_config[model_name_mapping[base_model_name]]
 
-    # remain params: lora_target, quantization_bit, max_samples
+    # remain params: lora_target, quantization_bit, each_max_samples
     train_params_cmd = f'''
 --stage sft \
 --do_train True \
@@ -76,8 +78,10 @@ def trval_main(args):
 --fp16 True \
 --plot_loss True \
 '''
-    if max_samples is not None:
-        train_params_cmd += f'''--max_samples {max_samples} \\'''
+    if each_max_samples is not None:
+        if len(each_max_samples.split(',')) != len(dataset.split(',')):
+            raise ValueError(f'{each_max_samples} and {dataset} should have the same num.')
+        train_params_cmd += f'''--each_max_samples {each_max_samples} \\'''
    
     export_params_cmd = f'''
 --model_name_or_path {model_name_or_path} \
@@ -124,7 +128,11 @@ def trval_main(args):
 
     # phase1: train, print train loss and eval loss, train log saved in trainer_log.jsonl    
     print('train_cmd:', train_cmd)
-    os.system(train_cmd)
+    train_p = subprocess.Popen(train_cmd, shell=True, stdout=sys.stdout, stderr=sys.stderr)
+    exit_code = train_p.wait()
+    if exit_code != 0:
+        print('train failed.')
+        sys.exit(exit_code)
     checkpoints = glob.glob(os.path.join(output_dir, 'checkpoint-*'))
     for checkpoint in checkpoints:
         shutil.rmtree(checkpoint)
@@ -139,5 +147,8 @@ def trval_main(args):
     # todo: only support single gpu predict(multi gpu deepspeed infer is so slow)
     predict_cmd = f'''CUDA_VISIBLE_DEVICES={gpus.split(',')[0]} python {finetune_file} \\''' + predict_params_cmd
     print('predict_cmd:', predict_cmd)
-    os.system(predict_cmd)
-    
+    predict_p = subprocess.Popen(predict_cmd, shell=True, stdout=sys.stdout, stderr=sys.stderr)
+    exit_code = predict_p.wait()
+    if exit_code != 0:
+        print('predict failed.')
+        sys.exit(exit_code)

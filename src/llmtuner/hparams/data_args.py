@@ -1,6 +1,6 @@
 import os
 import json
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Union
 from dataclasses import dataclass, field
 
 
@@ -81,6 +81,10 @@ class DataArguments:
         metadata={"help": "The number of processes to use for the preprocessing."}
     )
     max_samples: Optional[int] = field(
+        default=None,
+        metadata={"help": "For debugging purposes, truncate the number of examples for each dataset."}
+    )
+    each_max_samples: Optional[str] = field(
         default=None,
         metadata={"help": "For debugging purposes, truncate the number of examples for each dataset."}
     )
