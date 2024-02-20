@@ -37,11 +37,8 @@ def main():
         '--cpu_load', help='if gpu memory is not enough params and optimizer in cpu', action='store_true')
     
     args = parser.parse_args()
-    try:
-        if args.subcommand == 'train':
-            trval_main(args)
-    except Exception:
-        traceback.print_exc()
+    if args.subcommand == 'train':
+        trval_main(args)
 
 
 if __name__ == '__main__':
