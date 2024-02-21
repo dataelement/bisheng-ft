@@ -33,6 +33,7 @@ def main():
         url="https://github.com/dataelement/bisheng-ft",
         package_dir={"": "src"},
         packages=find_packages("src"),
+        package_data={'': ['*.json', '*.csv']},
         python_requires=">=3.8.0",
         install_requires=get_requires(),
         entry_points={
