@@ -31,6 +31,7 @@ model_name_mapping = {
 def trval_main(args):
     """train and val"""
     model_name_or_path = args.model_name_or_path
+    model_template = args.model_template
     dataset = args.dataset
     output_dir = args.output_dir
     val_ratio = args.val_ratio
@@ -45,11 +46,10 @@ def trval_main(args):
 
     if not os.path.exists(model_name_or_path):
         raise ValueError(f'base model path {model_name_or_path} not exists')
-    base_model_name = os.path.basename(model_name_or_path)
-    if base_model_name not in model_name_mapping.keys():
-        raise ValueError(f'base model name {base_model_name} not supported')
+    if model_template not in model_name_mapping.keys():
+        raise ValueError(f'model template {model_template} not supported')
     
-    base_config = model_config[model_name_mapping[base_model_name]]
+    base_config = model_config[model_name_mapping[model_template]]
 
     # remain params: lora_target, quantization_bit, each_max_samples
     train_params_cmd = f'''

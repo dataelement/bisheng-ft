@@ -1,6 +1,7 @@
 bisheng_ft train \
 --gpus 5 \
 --model_name_or_path /home/public/llm/Qwen-7B-Chat \
+--model_template Qwen-7B-Chat \
 --dataset /opt/bisheng-ft/sft_datasets/alpaca_data_zh_51k.json,/opt/bisheng-ft/sft_datasets/alpaca_data_en_52k.json \
 --each_max_samples '500,1000' \
 --output_dir saves/cli_test/lora/qwen-7b-adgen-val-sample5000-bit4 \

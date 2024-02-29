@@ -14,6 +14,8 @@ def main():
     trval_parser.add_argument(
         '--model_name_or_path', help='base model name', required=True, type=str)
     trval_parser.add_argument(
+        '--model_template', help='model template', required=True, type=str)
+    trval_parser.add_argument(
         '--dataset', help='train dataset path: data1,data2,data3', required=True, type=str)
     trval_parser.add_argument(
         '--each_max_samples', help='truncate the number of examples for each dataset: num1,num2,num3', required=True, type=str)
