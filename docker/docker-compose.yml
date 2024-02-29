@@ -7,11 +7,11 @@ services:
     environment:
       TZ: Asia/Shanghai
     volumes:
-      - ${DOCKER_VOLUME_DIRECTORY:-.}/bisheng/config/config.yaml:/opt/bisheng-rt/sft_server/config.yaml  # 配置配置文件地址
-      - ${DOCKER_VOLUME_DIRECTORY:-.}/data/models:/opt/bisheng-rt/models # 配置和RT服务同样的大模型目录
+      - ${DOCKER_VOLUME_DIRECTORY:-.}/bisheng/config/config.yaml:/opt/bisheng-ft/sft_server/config.yaml  # 配置配置文件地址
+      - ${DOCKER_VOLUME_DIRECTORY:-.}/data/models:/opt/bisheng-ft/models/model_repository # 配置和RT服务同样的大模型目录
     security_opt:
       - seccomp:unconfined
-    command: sh start-sft-server.sh # 启动服务
+    command: bash start-sft-server.sh # 启动服务
     restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

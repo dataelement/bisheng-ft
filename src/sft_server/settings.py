@@ -6,9 +6,9 @@ from pydantic import BaseSettings, validator
 
 # 以下配置和镜像目录相关，不可改动！！！
 # ָbisheng-ft命令的输出根目录
-CLIENT_CLI_OUTPUT = '/opt/bisheng-rt/finetune_output'
+CLIENT_CLI_OUTPUT = '/opt/bisheng-ft/finetune_output'
 # RT上已发布模型的根目录
-MODEL_ROOT_DIR = '/opt/bisheng-rt/models/model_repository'
+MODEL_ROOT_DIR = '/opt/bisheng-ft/models/model_repository'
 
 secret_key = 'TI31VYJ-ldAq-FXo5QNPKV_lqGTFfp-MIdbK2Hm5F1E='
 

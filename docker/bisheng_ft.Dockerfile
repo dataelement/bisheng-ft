@@ -39,9 +39,9 @@ COPY ./data/alpaca_data_zh_51k.json /opt/bisheng-ft/sft_datasets
 COPY ./docker/datasets_download.sh /opt/bisheng-ft/sft_datasets
 
 # 拷贝sft-server代码
-COPY ./src/sft_server /opt/bisheng-rt/
-COPY ./docker/start-sft-server.sh /opt/bisheng-rt/
-RUN mkdir -p /opt/bisheng-rt/sft_log /opt/bisheng-rt/finetune_output
+COPY ./src/sft_server /opt/bisheng-ft/sft_server
+COPY ./docker/start-sft-server.sh /opt/bisheng-ft/
+RUN mkdir -p /opt/bisheng-ft/sft_log /opt/bisheng-ft/finetune_output
 
 EXPOSE 8000
 CMD ["sh start-sft-server.sh"]
