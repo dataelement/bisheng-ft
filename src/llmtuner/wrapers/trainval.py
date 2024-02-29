@@ -95,11 +95,10 @@ def trval_main(args):
 --stage sft \
 --do_predict True \
 --finetuning_type full \
---model_name_or_path {model_name_or_path} \
+--model_name_or_path {output_dir} \
 --template {base_config['template']} \
 --dataset {dataset} \
 --max_samples 100 \
---checkpoint_dir {output_dir} \
 --output_dir {output_dir} \
 --cutoff_len {max_seq_len} \
 --per_device_eval_batch_size 1 \
@@ -142,6 +141,8 @@ def trval_main(args):
         export_file = os.path.join(dir_path, 'export_model.py')
         export_cmd = f'''python {export_file} \\''' + export_params_cmd 
         os.system(export_cmd)
+        os.remove(os.path.join(output_dir, 'adapter_config.json'))   
+        os.remove(os.path.join(output_dir, 'adapter_model.bin'))
 
     # phase3: predict 100 example, compute metrics (ROUGE, BLEU), metrics saved in predict_results.json, predictions saved in generated_predictions.jsonl
     # todo: only support single gpu predict(multi gpu deepspeed infer is so slow)
