@@ -1,5 +1,5 @@
 services:
-  sft_server:
+  ft_server:
     container_name: bisheng-ft-server
     image: dataelement/bisheng-ft:latest
     ports:
@@ -7,8 +7,8 @@ services:
     environment:
       TZ: Asia/Shanghai
     volumes:
-      - ${DOCKER_VOLUME_DIRECTORY:-.}/bisheng/config/config.yaml:/opt/bisheng-ft/sft_server/config.yaml  # 配置配置文件地址
-      - ${DOCKER_VOLUME_DIRECTORY:-.}/data/models:/opt/bisheng-ft/models/model_repository # 配置和RT服务同样的大模型目录
+      - /home/config/config_ft.yaml:/opt/bisheng-ft/sft_server/config.yaml  # 服务启动所需的配置文件地址
+      - /home/public/llm:/opt/bisheng-ft/models/model_repository # 配置和RT服务同样的大模型目录
     security_opt:
       - seccomp:unconfined
     command: bash start-sft-server.sh # 启动服务
@@ -19,3 +19,10 @@ services:
       interval: 90s
       timeout: 30s
       retries: 3
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
