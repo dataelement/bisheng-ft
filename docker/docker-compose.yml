@@ -7,7 +7,7 @@ services:
     environment:
       TZ: Asia/Shanghai
     volumes:
-      - /home/config/config_ft.yaml:/opt/bisheng-ft/sft_server/config.yaml  # 服务启动所需的配置文件地址
+      - ${DOCKER_VOLUME_DIRECTORY:-.}/config/config_ft.yaml:/opt/bisheng-ft/sft_server/config.yaml  # 服务启动所需的配置文件地址
       - /home/public/llm:/opt/bisheng-ft/models/model_repository # 配置和RT服务同样的大模型目录
     security_opt:
       - seccomp:unconfined
