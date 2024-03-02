@@ -21,7 +21,5 @@ matplotlib
 einops
 transformers_stream_generator
 deepspeed==0.12.5
-celery==5.3.6
-redis==5.0.1
-yaml==6.0
-cryptography==37.0.4
+# sft_server需要的依赖库
+celery[redis]
