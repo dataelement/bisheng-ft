@@ -9,6 +9,7 @@ services:
     volumes:
       - ${DOCKER_VOLUME_DIRECTORY:-.}/config/config_ft.yaml:/opt/bisheng-ft/sft_server/config.yaml  # 服务启动所需的配置文件地址
       - /home/public/llm:/opt/bisheng-ft/models/model_repository # 配置和RT服务同样的大模型目录
+      - /home/public/finetune_output:/opt/bisheng-ft/finetune_output # 训练期间的输出的模型和训练日志目录
     security_opt:
       - seccomp:unconfined
     command: bash start-sft-server.sh # 启动服务
