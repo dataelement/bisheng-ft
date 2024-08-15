@@ -5,14 +5,6 @@ type: docker
 clone:
   disable: true
 
-trigger:
-  status:
-    - success
-  ref: # git 分支
-    - refs/tags/*
-  branch: # git 分支
-    - feat/*
-
 
 steps: # 定义流水线执行步骤，这些步骤将顺序执行
   - name: clone
