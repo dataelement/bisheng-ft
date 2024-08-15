@@ -14,7 +14,6 @@ trigger:
     - feat/*
   event: # 事  件
     - tag
-  
 
 steps: # 定义流水线执行步骤，这些步骤将顺序执行
   - name: clone
