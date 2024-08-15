@@ -46,11 +46,6 @@ jobs:
       - name: set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: install poetry
-        uses: snok/install-poetry@v1
-        with:
-          installer-parallel: true
-
       - name: Build ft and push
         id: docker_build_ft
         uses: docker/build-push-action@v2
