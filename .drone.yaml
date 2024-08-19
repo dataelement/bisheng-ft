@@ -32,7 +32,7 @@ steps: # 定义流水线执行步骤，这些步骤将顺序执行
       https_proxy:
         from_secret: PROXY
       no_proxy: 192.168.106.8
-      version: ${DRONR_TAG}
+      version: ${DRONE_TAG}
       docker_repo: dataelement/bisheng-ft
       docker_user:
         from_secret: DOCKER_USER
