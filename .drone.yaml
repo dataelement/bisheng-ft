@@ -24,31 +24,38 @@ steps: # 定义流水线执行步骤，这些步骤将顺序执行
 
   - name: build_docker
     pull: if-not-exists
-    image: plugins/docker
-    privileged: true
-    volumes: # 将容器内目录挂载到宿主机，仓库需要开启Trusted设置
-      - name: apt-cache
-        path: /var/cache/apt/archives # 将应用打包好的Jar和执行脚本挂载出来
-      - name: socket
-        path: /var/run/docker.sock
+    image: docker:24.0.6
     environment:
       http_proxy:
         from_secret: PROXY
       https_proxy:
         from_secret: PROXY
       no_proxy: 192.168.106.8
-    settings:
-      purge: true
-      repo: dataelement/bisheng-ft
-      tags:
-       - ${DRONE_TAG}
-       - latest
-      context: ./
-      dockerfile: ./docker/bisheng_ft.Dockerfile        
-      username:
+      version: ${DEONR_TAG}
+      docker_repo: dataelement/bisheng-ft
+      docker_user:
         from_secret: DOCKER_USER
-      password:
+      docker_password:
         from_secret: DOCKER_PASSWORD
+      cr_user:
+        from_secret: CR_USER
+      cr_password:
+        from_secret: CR_PASSWORD
+      cr_repo_host: cr.dataelem.com
+    privileged: true
+    volumes: # 将容器内目录挂载到宿主机，仓库需要开启Trusted设置
+      - name: apt-cache
+        path: /var/cache/apt/archives # 将应用打包好的Jar和执行脚本挂载出来
+      - name: socket
+        path: /var/run/docker.sock
+    commands:
+      - docker login -u $cr_user -p $cr_password $cr_repo_host
+      - docker login -u $docker_user -p $docker_password
+      - docker build -t $docker_repo:$version -f ./docker/bisheng_ft.Dockerfile ./
+      - docker push $docker_repo:$version
+      - docker tag $docker_repo:$version $cr_repo_host/$docker_repo:$version
+      - docker push $cr_repo_host/$docker_repo:$version
+      
 volumes:
 - name: bisheng-cache
   host:
