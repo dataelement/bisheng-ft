@@ -1,7 +1,7 @@
 FROM nvcr.io/nvidia/pytorch:22.08-py3
 
 ARG PIP_REPO=https://pypi.tuna.tsinghua.edu.cn/simple
-ARG EXTR_PIP_REPO="http://public:26rS9HRxDqaVy5T@192.168.106.8:6081/repository/pypi-hosted/simple --trusted-host 110.16.193.170"
+ARG EXTR_PIP_REPO="http://public:26rS9HRxDqaVy5T@192.168.106.8:6081/repository/pypi-hosted/simple --trusted-host 192.168.106.8"
 ARG BISHENG_FT_VER=0.0.1
 
 # 安装系统库依赖
