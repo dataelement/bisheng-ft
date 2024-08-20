@@ -128,6 +128,16 @@ def get_job_report(job_id: str = Body()):
     }}
 
 
+@app.get('/v2.1/sft/model')
+def get_all_model():
+    model_list = SFTManage.get_all_model()
+    return {
+        "status_code": 200,
+        "status_message": "success",
+        "data": model_list
+    }
+
+
 @app.get('/v2.1/sft/gpu')
 def get_gpu_info():
     logger.info('get gpu info')

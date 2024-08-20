@@ -20,7 +20,7 @@ class SFTManage(object):
     # 执行的训练指令
     ClientCli = 'bisheng_ft'
 
-    # 已发布模型的跟目录
+    # 已发布模型的根目录
     ModelRootPath = settings.MODEL_ROOT_DIR
 
     # job 运行状态
@@ -58,6 +58,15 @@ class SFTManage(object):
         # 训练集文件的本地目录
         self.train_dir = os.path.join(self.job_exec_dir, 'train_data')
         os.makedirs(self.train_dir, exist_ok=True)
+
+    @classmethod
+    def get_all_model(cls):
+        """ 获取所有的模型列表 """
+        ret = []
+        for one in os.listdir(cls.ModelRootPath):
+            if os.path.isdir(os.path.join(cls.ModelRootPath, one)):
+                ret.append(one)
+        return ret
 
     def run_job(self, options: List, commands: Dict):
         logger.info(f'start run finetune_job job_id: {self.job_id},'
