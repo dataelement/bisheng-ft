@@ -10,11 +10,6 @@ trigger:
     - refs/tags/v*
 
 steps: # 定义流水线执行步骤，这些步骤将顺序执行
-  - name: show_yaml_content
-    image: alpine/git
-    pull: if-not-exists
-    commands:
-      - cat .drone.yaml
   - name: clone
     image: alpine/git
     pull: if-not-exists
@@ -27,6 +22,12 @@ steps: # 定义流水线执行步骤，这些步骤将顺序执行
       - git config --global core.compression 0
       - git clone https://github.com/dataelement/bisheng-ft.git .
       - git checkout $DRONE_COMMIT
+
+  - name: show_yaml_content
+    image: alpine/git
+    pull: if-not-exists
+    commands:
+      - cat .drone.yaml
 
   - name: build_docker
     pull: if-not-exists
