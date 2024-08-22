@@ -61,7 +61,7 @@ steps: # 定义流水线执行步骤，这些步骤将顺序执行
       - docker build -t $docker_repo:$version -f ./docker/bisheng_ft.Dockerfile ./
       - docker push $docker_repo:$version
       - docker tag $docker_repo:$version $cr_repo_host/$docker_repo:$version
-      - dokcer tag $docker_repo:$version $docker_repo:latest
+      - docker tag $docker_repo:$version $docker_repo:latest
       - docker tag $docker_repo:$version $cr_repo_host/$docker_repo:latest
       - docker push $docker_repo:latest
       - docker push $cr_repo_host/$docker_repo:$version
