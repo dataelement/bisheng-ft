@@ -6,8 +6,10 @@ clone:
   disable: true
 
 trigger:
-  ref:
-    - refs/tags/v*
+  # ref:
+  #   - refs/tags/v*
+  branch:
+    - feat/*
 
 steps: # 定义流水线执行步骤，这些步骤将顺序执行
   - name: clone
