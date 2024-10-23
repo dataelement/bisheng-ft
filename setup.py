@@ -23,19 +23,22 @@ def get_version() -> str:
     with open(os.path.join("src", "llamafactory", "extras", "env.py"), "r", encoding="utf-8") as f:
         file_content = f.read()
         pattern = r"{}\W*=\W*\"([^\"]+)\"".format("VERSION")
-        (version,) = re.findall(pattern, file_content)
+        (version, ) = re.findall(pattern, file_content)
         return version
 
 
 def get_requires() -> List[str]:
     with open("requirements.txt", "r", encoding="utf-8") as f:
         file_content = f.read()
-        lines = [line.strip() for line in file_content.strip().split("\n") if not line.startswith("#")]
+        lines = [
+            line.strip() for line in file_content.strip().split("\n") if not line.startswith("#")
+        ]
         return lines
 
 
 def get_console_scripts() -> List[str]:
     console_scripts = ["llamafactory-cli = llamafactory.cli:main"]
+    console_scripts.append("bisheng_ft = llmtuner.wrapers.interface:main")
     if os.environ.get("ENABLE_SHORT_CONSOLE", "1").lower() in ["true", "1"]:
         console_scripts.append("lmf = llamafactory.cli:main")
 
@@ -66,18 +69,23 @@ extra_require = {
 
 def main():
     setup(
-        name="llamafactory",
+        name="bisheng-ft",
         version=get_version(),
-        author="hiyouga",
-        author_email="hiyouga" "@" "buaa.edu.cn",
+        author="gulixin",
+        author_email="gulixin"
+        "@"
+        "dataelem.com",
         description="Easy-to-use LLM fine-tuning framework",
         long_description=open("README.md", "r", encoding="utf-8").read(),
         long_description_content_type="text/markdown",
-        keywords=["LLaMA", "BLOOM", "Falcon", "LLM", "ChatGPT", "transformer", "pytorch", "deep learning"],
+        keywords=[
+            "LLaMA", "BLOOM", "Falcon", "LLM", "ChatGPT", "transformer", "pytorch", "deep learning"
+        ],
         license="Apache 2.0 License",
-        url="https://github.com/hiyouga/LLaMA-Factory",
+        url="https://github.com/dataelement/bisheng-ft",
         package_dir={"": "src"},
         packages=find_packages("src"),
+        package_data={'': ['*.json', '*.csv']},
         python_requires=">=3.8.0",
         install_requires=get_requires(),
         extras_require=extra_require,

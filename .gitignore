@@ -167,3 +167,4 @@ config/
 saves/
 output/
 wandb/
+.vscode
