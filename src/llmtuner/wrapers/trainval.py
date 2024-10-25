@@ -101,7 +101,7 @@ def trval_main(args):
     if each_max_samples is not None:
         if len(each_max_samples.split(',')) != len(dataset.split(',')):
             raise ValueError(f'{each_max_samples} and {dataset} should have the same num.')
-        train_params_cmd += f'''--each_max_samples {each_max_samples} '''
+        train_params_cmd += f'''--eval_strategy {each_max_samples} '''
 
     export_params_cmd = f'''
 --model_name_or_path {model_name_or_path} \

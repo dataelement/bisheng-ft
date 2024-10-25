@@ -32,15 +32,14 @@ from .pt import run_pt
 from .rm import run_rm
 from .sft import run_sft
 
-
 if TYPE_CHECKING:
     from transformers import TrainerCallback
-
 
 logger = get_logger(__name__)
 
 
-def run_exp(args: Optional[Dict[str, Any]] = None, callbacks: List["TrainerCallback"] = []) -> None:
+def run_exp(args: Optional[Dict[str, Any]] = None,
+            callbacks: List["TrainerCallback"] = []) -> None:
     callbacks.append(LogCallback())
     model_args, data_args, training_args, finetuning_args, generating_args = get_train_args(args)
 
@@ -73,15 +72,18 @@ def export_model(args: Optional[Dict[str, Any]] = None) -> None:
     tokenizer = tokenizer_module["tokenizer"]
     processor = tokenizer_module["processor"]
     get_template_and_fix_tokenizer(tokenizer, data_args)
-    model = load_model(tokenizer, model_args, finetuning_args)  # must after fixing tokenizer to resize vocab
+    model = load_model(tokenizer, model_args,
+                       finetuning_args)  # must after fixing tokenizer to resize vocab
 
-    if getattr(model, "quantization_method", None) is not None and model_args.adapter_name_or_path is not None:
+    if getattr(model, "quantization_method",
+               None) is not None and model_args.adapter_name_or_path is not None:
         raise ValueError("Cannot merge adapters to a quantized model.")
 
     if not isinstance(model, PreTrainedModel):
         raise ValueError("The model is not a `PreTrainedModel`, export aborted.")
 
-    if getattr(model, "quantization_method", None) is not None:  # quantized model adopts float16 type
+    if getattr(model, "quantization_method",
+               None) is not None:  # quantized model adopts float16 type
         setattr(model.config, "torch_dtype", torch.float16)
     else:
         if model_args.infer_dtype == "auto":
@@ -135,9 +137,8 @@ def export_model(args: Optional[Dict[str, Any]] = None) -> None:
         if processor is not None:
             getattr(processor, "image_processor").save_pretrained(model_args.export_dir)
             if model_args.export_hub_model_id is not None:
-                getattr(processor, "image_processor").push_to_hub(
-                    model_args.export_hub_model_id, token=model_args.hf_hub_token
-                )
+                getattr(processor, "image_processor").push_to_hub(model_args.export_hub_model_id,
+                                                                  token=model_args.hf_hub_token)
 
     except Exception:
         logger.warning("Cannot save tokenizer, please copy the files manually.")

@@ -12,7 +12,7 @@ ARG INSTALL_BNB=false
 ARG INSTALL_VLLM=false
 ARG INSTALL_DEEPSPEED=false
 ARG INSTALL_FLASHATTN=false
-ARG PIP_INDEX=https://pypi.org/simple
+ARG PIP_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
 
 # Set the working directory
 WORKDIR /app
