@@ -129,7 +129,7 @@ def trval_main(args):
 --fp16 True \
 '''
 
-    finetune_file = os.path.join(dir_path, '..', 'tuner', 'tune.py')
+    finetune_file = os.path.join(dir_path, '..', '..', 'train', 'tuner.py')
     if (len(gpus.split(',')) == 1) and (not cpu_load):
         # Train on a single GPU
         train_cmd = f'''CUDA_VISIBLE_DEVICES={gpus} python {finetune_file} \\''' + train_params_cmd
