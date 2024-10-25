@@ -4,19 +4,38 @@ import glob
 import shutil
 import random
 import subprocess
+
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 model_config = {
-    'baichuan2': {'default_module': 'W_pack', 'template': 'baichuan2'},
-    'chatglm2': {'default_module': 'query_key_value', 'template': 'chatglm2'},
-    'chatglm3': {'default_module': 'query_key_value', 'template': 'chatglm3'},
-    'internlm': {'default_module': 'q_proj,v_proj', 'template': 'intern'},
-    'llama2': {'default_module': 'q_proj,v_proj', 'template': 'llama2'},
-    'qwen': {'default_module': 'c_attn', 'template': 'qwen'},
+    'baichuan2': {
+        'default_module': 'W_pack',
+        'template': 'baichuan2'
+    },
+    'chatglm2': {
+        'default_module': 'query_key_value',
+        'template': 'chatglm2'
+    },
+    'chatglm3': {
+        'default_module': 'query_key_value',
+        'template': 'chatglm3'
+    },
+    'internlm': {
+        'default_module': 'q_proj,v_proj',
+        'template': 'intern'
+    },
+    'llama2': {
+        'default_module': 'q_proj,v_proj',
+        'template': 'llama2'
+    },
+    'qwen': {
+        'default_module': 'c_attn',
+        'template': 'qwen'
+    },
 }
 
 model_name_mapping = {
-    'Baichuan2-7B-Chat': 'baichuan2', 
+    'Baichuan2-7B-Chat': 'baichuan2',
     'Baichuan2-13B-Chat': 'baichuan2',
     'chatglm2-6b': 'chatglm2',
     'chatglm3-6b': 'chatglm3',
@@ -28,6 +47,7 @@ model_name_mapping = {
     'Qwen-14B-Chat': 'qwen',
 }
 
+
 def trval_main(args):
     """train and val"""
     model_name_or_path = args.model_name_or_path
@@ -35,7 +55,7 @@ def trval_main(args):
     dataset = args.dataset
     output_dir = args.output_dir
     val_ratio = args.val_ratio
-    each_max_samples = args.each_max_samples 
+    each_max_samples = args.each_max_samples
     finetuning_type = args.finetuning_type
     per_device_train_batch_size = args.per_device_train_batch_size
     learning_rate = args.learning_rate
@@ -48,7 +68,7 @@ def trval_main(args):
         raise ValueError(f'base model path {model_name_or_path} not exists')
     if model_template not in model_name_mapping.keys():
         raise ValueError(f'model template {model_template} not supported')
-    
+
     base_config = model_config[model_name_mapping[model_template]]
 
     # remain params: lora_target, quantization_bit, each_max_samples
@@ -81,8 +101,8 @@ def trval_main(args):
     if each_max_samples is not None:
         if len(each_max_samples.split(',')) != len(dataset.split(',')):
             raise ValueError(f'{each_max_samples} and {dataset} should have the same num.')
-        train_params_cmd += f'''--each_max_samples {each_max_samples} '''
-   
+        train_params_cmd += f'''--eval_strategy {each_max_samples} '''
+
     export_params_cmd = f'''
 --model_name_or_path {model_name_or_path} \
 --template {base_config['template']} \
@@ -90,7 +110,7 @@ def trval_main(args):
 --checkpoint_dir {output_dir} \
 --export_dir {output_dir} \
 '''
-    
+
     predict_params_cmd = f'''
 --stage sft \
 --do_predict True \
@@ -109,9 +129,9 @@ def trval_main(args):
 --fp16 True \
 '''
 
-    finetune_file = os.path.join(dir_path, '..', 'tuner', 'tune.py')
+    finetune_file = os.path.join(dir_path, '..', 'llamafactory', 'train', 'tuner.py')
     if (len(gpus.split(',')) == 1) and (not cpu_load):
-        # Train on a single GPU 
+        # Train on a single GPU
         train_cmd = f'''CUDA_VISIBLE_DEVICES={gpus} python {finetune_file} \\''' + train_params_cmd
         if finetuning_type == 'lora':
             train_cmd += f'''--lora_target {base_config['default_module']}'''
@@ -125,7 +145,7 @@ def trval_main(args):
         if finetuning_type == 'lora':
             train_cmd += f'''--lora_target {base_config['default_module']}'''
 
-    # phase1: train, print train loss and eval loss, train log saved in trainer_log.jsonl    
+    # phase1: train, print train loss and eval loss, train log saved in trainer_log.jsonl
     print('train_cmd:', train_cmd)
     train_p = subprocess.Popen(train_cmd, shell=True, stdout=sys.stdout, stderr=sys.stderr)
     exit_code = train_p.wait()
@@ -135,13 +155,13 @@ def trval_main(args):
     checkpoints = glob.glob(os.path.join(output_dir, 'checkpoint-*'))
     for checkpoint in checkpoints:
         shutil.rmtree(checkpoint)
-    
+
     # phase2: merge LoRA weights and export model, generate pytorch_model-0000*.bin
     if finetuning_type == 'lora':
         export_file = os.path.join(dir_path, 'export_model.py')
-        export_cmd = f'''python {export_file} \\''' + export_params_cmd 
+        export_cmd = f'''python {export_file} \\''' + export_params_cmd
         os.system(export_cmd)
-        os.remove(os.path.join(output_dir, 'adapter_config.json'))   
+        os.remove(os.path.join(output_dir, 'adapter_config.json'))
         os.remove(os.path.join(output_dir, 'adapter_model.bin'))
 
     # phase3: predict 100 example, compute metrics (ROUGE, BLEU), metrics saved in predict_results.json, predictions saved in generated_predictions.jsonl

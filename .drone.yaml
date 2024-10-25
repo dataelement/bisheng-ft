@@ -6,8 +6,10 @@ clone:
   disable: true
 
 trigger:
-  ref:
-    - refs/tags/v*
+  # ref:
+  #   - refs/tags/v*
+  branch:
+    - feat/*
 
 steps: # 定义流水线执行步骤，这些步骤将顺序执行
   - name: clone
@@ -38,7 +40,7 @@ steps: # 定义流水线执行步骤，这些步骤将顺序执行
       https_proxy:
         from_secret: PROXY
       no_proxy: 192.168.106.8,192.168.106.8
-      version: ${DRONE_TAG}
+      version: "test"
       docker_repo: dataelement/bisheng-ft
       docker_user:
         from_secret: DOCKER_USER
