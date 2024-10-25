@@ -1,12 +1,12 @@
 services:
-  llamafactory:
+  bisheng-ft:
     build:
       dockerfile: ./docker/docker-npu/Dockerfile
       context: ../..
       args:
-        INSTALL_DEEPSPEED: false
-        PIP_INDEX: https://pypi.org/simple
-    container_name: llamafactory
+        INSTALL_DEEPSPEED: true
+        PIP_INDEX: https://pypi.tuna.tsinghua.edu.cn/simple
+    container_name: bisheng-ft
     volumes:
       - ../../hf_cache:/root/.cache/huggingface
       - ../../ms_cache:/root/.cache/modelscope
@@ -17,6 +17,8 @@ services:
       - /usr/local/bin/npu-smi:/usr/local/bin/npu-smi
       - /usr/local/Ascend/driver:/usr/local/Ascend/driver
       - /etc/ascend_install.info:/etc/ascend_install.info
+      - ./bisheng-ft/config.yaml:/opt/bisheng-ft/sft_server/config.yaml  # 服务启动所需的配置文件地址
+      - ./data/llm:/opt/bisheng-ft/models/model_repository # 配置和RT服务同样的大模型目录
     ports:
       - "7860:7860"
       - "8000:8000"
