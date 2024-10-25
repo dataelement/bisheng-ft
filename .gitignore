@@ -160,3 +160,11 @@ cython_debug/
 .idea/
 
 .vscode
+# custom .gitignore
+ms_cache/
+hf_cache/
+cache/
+config/
+saves/
+output/
+wandb/
