@@ -10,7 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Define installation arguments
 ARG INSTALL_DEEPSPEED=false
-ARG PIP_INDEX=https://pypi.org/simple
+ARG PIP_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
 ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu
 
 # Set the working directory
@@ -36,6 +36,11 @@ RUN EXTRA_PACKAGES="torch-npu,metrics"; \
 # Set up volumes
 VOLUME [ "/root/.cache/huggingface", "/root/.cache/modelscope", "/app/data", "/app/output" ]
 
+RUN mkdir -p /opt/bisheng-ft/sft_datasets
+# 拷贝sft-server代码
+COPY src/sft_server /opt/bisheng-ft/sft_server
+RUN mkdir -p /opt/bisheng-ft/sft_log /opt/bisheng-ft/finetune_output
+
 # Expose port 7860 for the LLaMA Board
 ENV GRADIO_SERVER_PORT 7860
 EXPOSE 7860
@@ -43,3 +48,4 @@ EXPOSE 7860
 # Expose port 8000 for the API service
 ENV API_PORT 8000
 EXPOSE 8000
+CMD ["sh start-sft-server.sh"]

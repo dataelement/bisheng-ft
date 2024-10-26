@@ -15,7 +15,7 @@ ARG INSTALL_FLASHATTN=false
 ARG INSTALL_LIGER_KERNEL=false
 ARG INSTALL_HQQ=false
 ARG INSTALL_EETQ=false
-ARG PIP_INDEX=https://pypi.org/simple
+ARG PIP_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
 
 # Set the working directory
 WORKDIR /app
@@ -69,3 +69,8 @@ EXPOSE 7860
 # Expose port 8000 for the API service
 ENV API_PORT 8000
 EXPOSE 8000
+RUN mkdir -p /opt/bisheng-ft/sft_datasets
+# 拷贝sft-server代码
+COPY src/sft_server /opt/bisheng-ft/sft_server
+RUN mkdir -p /opt/bisheng-ft/sft_log /opt/bisheng-ft/finetune_output
+CMD ["sh start-sft-server.sh"]

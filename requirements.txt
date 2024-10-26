@@ -22,3 +22,5 @@ numpy<2.0.0
 av
 # sft_server需要的依赖库
 celery[redis]
+cryptography
+pydantic_settings

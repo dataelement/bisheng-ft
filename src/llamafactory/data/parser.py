@@ -71,7 +71,8 @@ class DatasetAttr:
         setattr(self, key, obj.get(key, default))
 
 
-def get_dataset_list(dataset_names: Optional[Sequence[str]], dataset_dir: str) -> List["DatasetAttr"]:
+def get_dataset_list(dataset_names: Optional[Sequence[str]],
+                     dataset_dir: str) -> List["DatasetAttr"]:
     r"""
     Gets the attributes of the datasets.
     """
@@ -82,7 +83,9 @@ def get_dataset_list(dataset_names: Optional[Sequence[str]], dataset_dir: str) -
         dataset_info = None
     else:
         if dataset_dir.startswith("REMOTE:"):
-            config_path = cached_file(path_or_repo_id=dataset_dir[7:], filename=DATA_CONFIG, repo_type="dataset")
+            config_path = cached_file(path_or_repo_id=dataset_dir[7:],
+                                      filename=DATA_CONFIG,
+                                      repo_type="dataset")
         else:
             config_path = os.path.join(dataset_dir, DATA_CONFIG)
 

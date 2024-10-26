@@ -37,3 +37,39 @@ val_size: 0.1
 per_device_eval_batch_size: 1
 eval_strategy: steps
 eval_steps: 500
+
+
+
+python /app/src/llmtuner/wrapers/../../llamafactory/train/tuner.py \
+--stage sft --do_train True --finetuning_type lora --lora_target all --model_name_or_path /opt/bisheng-ft/models/model_repository/Qwen-7B-Chat --template qwen --dataset  identity,alpaca_en_demo \
+--val_size 0.1 --output_dir /opt/bisheng-ft/finetune_output/e266b49f0ae148eaae2d4ac1cde1bc7e/model_output --overwrite_output_dir true --cutoff_len 8192 --learning_rate 5e-05 --per_device_train_batch_size 1 --per_device_eval_batch_size 1 --gradient_accumulation_steps 4 \
+--lr_scheduler_type cosine --num_train_epochs 3 --logging_steps 10 --plot_loss True  --max_samples 1000 \
+--save_strategy epoch --evaluation_strategy epoch --metric_for_best_model eval_loss --load_best_model_at_end True --save_total_limit 1 --fp16 True
+
+
+stage sft 
+do_train True 
+finetuning_type full 
+model_name_or_path /opt/bisheng-ft/models/model_repository/Qwen-7B-Chat 
+template qwen 
+dataset /opt/bisheng-ft/finetune_output/e266b49f0ae148eaae2d4ac1cde1bc7e/train_data/67bfb5ef1243428295406eb07478c0f0.json 
+
+val_size 0.1 
+output_dir /opt/bisheng-ft/finetune_output/e266b49f0ae148eaae2d4ac1cde1bc7e/model_output 
+overwrite_output_dir 
+cutoff_len 8192 
+learning_rate 5e-05 
+per_device_train_batch_size 1 
+per_device_eval_batch_size 1 
+gradient_accumulation_steps 4 
+lr_scheduler_type cosine 
+num_train_epochs 3 
+logging_steps 10 
+save_strategy epoch 
+evaluation_strategy epoch 
+metric_for_best_model eval_loss 
+load_best_model_at_end True 
+save_total_limit 1 
+fp16 True 
+plot_loss True 
+each_max_samples 1000 

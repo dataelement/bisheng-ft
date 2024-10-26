@@ -1,9 +1,13 @@
+import json
 import os
 import sys
 import glob
 import shutil
 import random
 import subprocess
+from loguru import logger
+from llamafactory.extras.misc import get_device_count
+from llamafactory import launcher
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -52,7 +56,7 @@ def trval_main(args):
     """train and val"""
     model_name_or_path = args.model_name_or_path
     model_template = args.model_template
-    dataset = args.dataset
+    dataset: str = args.dataset
     output_dir = args.output_dir
     val_ratio = args.val_ratio
     each_max_samples = args.each_max_samples
@@ -71,6 +75,12 @@ def trval_main(args):
 
     base_config = model_config[model_name_mapping[model_template]]
 
+    # dataset change
+    data_dir = dataset.split(',')[0].rsplit("/", 1)[0]
+    datasets = dataset.replace(data_dir + "/", "")
+    dataset_info = {key: {"file_name": key} for key in datasets.split(',')}
+    with open(os.path.join(data_dir, 'dataset_info.json'), "w") as f:
+        f.write(json.dumps(dataset_info, indent=4))
     # remain params: lora_target, quantization_bit, each_max_samples
     train_params_cmd = f'''
 --stage sft \
@@ -78,10 +88,11 @@ def trval_main(args):
 --finetuning_type {finetuning_type} \
 --model_name_or_path {model_name_or_path} \
 --template {base_config['template']} \
---dataset {dataset} \
+--dataset {datasets} \
+--dataset_dir {data_dir} \
 --val_size {val_ratio} \
 --output_dir {output_dir} \
---overwrite_output_dir \
+--overwrite_output_dir true\
 --cutoff_len {max_seq_len} \
 --learning_rate {learning_rate} \
 --per_device_train_batch_size {per_device_train_batch_size} \
@@ -117,7 +128,8 @@ def trval_main(args):
 --finetuning_type full \
 --model_name_or_path {output_dir} \
 --template {base_config['template']} \
---dataset {dataset} \
+--dataset {datasets} \
+--dataset_dir {data_dir} \
 --max_samples 100 \
 --output_dir {output_dir} \
 --cutoff_len {max_seq_len} \
@@ -130,23 +142,41 @@ def trval_main(args):
 '''
 
     finetune_file = os.path.join(dir_path, '..', '..', 'train', 'tuner.py')
-    if (len(gpus.split(',')) == 1) and (not cpu_load):
-        # Train on a single GPU
-        train_cmd = f'''CUDA_VISIBLE_DEVICES={gpus} python {finetune_file} \\''' + train_params_cmd
-        if finetuning_type == 'lora':
-            train_cmd += f'''--lora_target {base_config['default_module']}'''
+    if finetuning_type == 'lora':
+        train_params_cmd += f'''--lora_target {base_config['default_module']}'''
+    force_torchrun = os.environ.get("FORCE_TORCHRUN", "0").lower() in ["true", "1"]
+    if force_torchrun or get_device_count() > 1:
+        master_addr = os.environ.get("MASTER_ADDR", "127.0.0.1")
+        master_port = os.environ.get("MASTER_PORT", str(random.randint(20001, 29999)))
+        logger.info("Initializing distributed tasks at: {}:{}".format(master_addr, master_port))
+        train_cmd = (
+            "torchrun --nnodes {nnodes} --node_rank {node_rank} --nproc_per_node {nproc_per_node} "
+            "--master_addr {master_addr} --master_port {master_port} {file_name} \\{args}").format(
+                nnodes=os.environ.get("NNODES", "1"),
+                node_rank=os.environ.get("RANK", "0"),
+                nproc_per_node=os.environ.get("NPROC_PER_NODE", str(get_device_count())),
+                master_addr=master_addr,
+                master_port=master_port,
+                file_name=launcher.__file__,
+                args=train_params_cmd,
+            )
+        logger.info(train_cmd)
     else:
-        if cpu_load:
-            deepspeed_file = 'ds_config_zero3_cpu.json'
-        else:
-            deepspeed_file = 'ds_config_zero2.json'
-        master_port_id = random.randint(1000, 9999)
-        train_cmd = f'''deepspeed -i localhost:{gpus} --master_port={master_port_id} {finetune_file} --deepspeed {os.path.join(dir_path, deepspeed_file)} \\''' + train_params_cmd
-        if finetuning_type == 'lora':
-            train_cmd += f'''--lora_target {base_config['default_module']}'''
+        # Train on a single GPU
+        train_cmd = f'''python {finetune_file} \\''' + train_params_cmd
+
+    # else:
+    #     if cpu_load:
+    #         deepspeed_file = 'ds_config_zero3_cpu.json'
+    #     else:
+    #         deepspeed_file = 'ds_config_zero2.json'
+    #     master_port_id = random.randint(1000, 9999)
+    #     train_cmd = f'''deepspeed -i localhost:{gpus} --master_port={master_port_id} {finetune_file} --deepspeed {os.path.join(dir_path, deepspeed_file)} \\''' + train_params_cmd
+    #     if finetuning_type == 'lora':
+    #         train_cmd += f'''--lora_target {base_config['default_module']}'''
 
     # phase1: train, print train loss and eval loss, train log saved in trainer_log.jsonl
-    print('train_cmd:', train_cmd)
+    logger.info('train_cmd:' + train_cmd)
     train_p = subprocess.Popen(train_cmd, shell=True, stdout=sys.stdout, stderr=sys.stderr)
     exit_code = train_p.wait()
     if exit_code != 0:
@@ -162,12 +192,14 @@ def trval_main(args):
         export_cmd = f'''python {export_file} \\''' + export_params_cmd
         os.system(export_cmd)
         os.remove(os.path.join(output_dir, 'adapter_config.json'))
-        os.remove(os.path.join(output_dir, 'adapter_model.bin'))
+        # os.remove(os.path.join(output_dir, 'adapter_model.bin'))
 
-    # phase3: predict 100 example, compute metrics (ROUGE, BLEU), metrics saved in predict_results.json, predictions saved in generated_predictions.jsonl
-    # todo: only support single gpu predict(multi gpu deepspeed infer is so slow)
-    predict_cmd = f'''CUDA_VISIBLE_DEVICES={gpus.split(',')[0]} python {finetune_file} \\''' + predict_params_cmd
-    print('predict_cmd:', predict_cmd)
+
+#
+# phase3: predict 100 example, compute metrics (ROUGE, BLEU), metrics saved in predict_results.json, predictions saved in generated_predictions.jsonl
+# todo: only support single gpu predict(multi gpu deepspeed infer is so slow)
+    predict_cmd = f'''python {finetune_file} \\''' + predict_params_cmd
+    logger.info('predict_cmd:' + predict_cmd)
     predict_p = subprocess.Popen(predict_cmd, shell=True, stdout=sys.stdout, stderr=sys.stderr)
     exit_code = predict_p.wait()
     if exit_code != 0:

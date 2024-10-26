@@ -85,7 +85,7 @@ class SFTManage(object):
             stdout_file = open(self.stdout_path, 'wb')
             stderr_file = open(self.stderr_path, 'wb')
             pid_file = open(self.pid_path, 'wb')
-            logger.info(f'start cmd job_id: {self.job_id}, params: {commands}')
+            logger.info(f'start cmd job_id: {self.job_id}')
             # 分布式部署时，此处指令的pid需要挂载同一个任务输出目录
             pid, code = CmdManage.execute_cmd(self.ClientCli,
                                               options,
@@ -241,8 +241,7 @@ class SFTManage(object):
 
     def parse_commands(self, commands):
         # 将model_name 拼接为完整的绝对路径
-        model_path = os.path.join(self.ModelRootPath,
-                                  commands['model_name_or_path'])
+        model_path = os.path.join(self.ModelRootPath, commands['model_name_or_path'])
         commands['model_name_or_path'] = model_path
         # 指定指令的输出路径
         commands['output_dir'] = self.model_output_dir
@@ -256,9 +255,7 @@ class SFTManage(object):
 
     def download_train_file(self, file_url: str) -> str:
         """ 将远端的训练文件下载到本地 """
-        local_file_path = os.path.join(self.train_dir,
-                                       os.path.basename(
-                                           file_url.split('?')[0]))
+        local_file_path = os.path.join(self.train_dir, os.path.basename(file_url.split('?')[0]))
         res = requests.get(file_url)
         if res.status_code != 200:
             raise Exception(f'fail to download file from [{file_url}]')
