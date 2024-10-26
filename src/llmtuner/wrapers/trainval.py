@@ -92,7 +92,7 @@ def trval_main(args):
 --dataset_dir {data_dir} \
 --val_size {val_ratio} \
 --output_dir {output_dir} \
---overwrite_output_dir true\
+--overwrite_output_dir True \
 --cutoff_len {max_seq_len} \
 --learning_rate {learning_rate} \
 --per_device_train_batch_size {per_device_train_batch_size} \
