@@ -1,6 +1,6 @@
 import argparse
 
-from src.llmtuner.wrapers.trainval import trval_main
+from llmtuner.wrapers.trainval import trval_main
 
 
 def main():
