@@ -141,7 +141,7 @@ def trval_main(args):
 --fp16 True \
 '''
 
-    finetune_file = os.path.join(dir_path, '..', '..', 'train', 'tuner.py')
+    finetune_file = os.path.join(dir_path, '..', '..', 'llamafactory', 'train', 'tuner.py')
     if finetuning_type == 'lora':
         train_params_cmd += f'''--lora_target {base_config['default_module']}'''
     force_torchrun = os.environ.get("FORCE_TORCHRUN", "0").lower() in ["true", "1"]
