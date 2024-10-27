@@ -24,3 +24,4 @@ av
 celery[redis]
 cryptography
 pydantic_settings
+loguru
