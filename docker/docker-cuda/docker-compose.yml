@@ -1,0 +1,38 @@
+services:
+  bisheng-ft:
+    build:
+      dockerfile: ./docker/docker-cuda/Dockerfile
+      context: ../..
+      args:
+        INSTALL_BNB: false
+        INSTALL_VLLM: false
+        INSTALL_DEEPSPEED: true
+        INSTALL_FLASHATTN: false
+        INSTALL_LIGER_KERNEL: false
+        INSTALL_HQQ: false
+        INSTALL_EETQ: false
+        PIP_INDEX: https://pypi.tuna.tsinghua.edu.cn/simple
+    container_name: bisheng-ft
+    volumes:
+      - ../../hf_cache:/root/.cache/huggingface
+      - ../../ms_cache:/root/.cache/modelscope
+      - ../../om_cache:/root/.cache/openmind
+      - ../../data:/app/data
+      - ../../output:/app/output
+      - ./bisheng-ft/config.yaml:/opt/bisheng-ft/sft_server/config.yaml  # 服务启动所需的配置文件地址
+      - ./data/llm:/opt/bisheng-ft/models/model_repository # 配置和RT服务同样的大模型目录
+    ports:
+      - "7860:7860"
+      - "8000:8000"
+    ipc: host
+    tty: true
+    stdin_open: true
+    command: bash
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: "all"
+            capabilities: [gpu]
+    restart: unless-stopped

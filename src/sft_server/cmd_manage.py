@@ -1,19 +1,26 @@
+from logging import getLogger
 import os
 import signal
 import subprocess
 from typing import BinaryIO, Dict, List
 
+logger = getLogger(__name__)
+
 
 class CmdManage:
 
     @classmethod
-    def execute_cmd(cls, cmd: str, options: List[str], commands: Dict,
+    def execute_cmd(cls,
+                    cmd: str,
+                    options: List[str],
+                    commands: Dict,
                     stdout: BinaryIO,
                     stderr: BinaryIO,
                     pid_file: BinaryIO,
                     timeout: int = None) -> (int, int):
 
         cmd = cls.parse_cmd(cmd, options, commands)
+        logger.info(f'execute cmd: [{cmd}]')
         try:
             p = subprocess.Popen(
                 cmd,

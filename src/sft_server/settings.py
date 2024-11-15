@@ -2,7 +2,8 @@ import os
 
 import yaml
 from cryptography.fernet import Fernet
-from pydantic import BaseSettings, validator
+from pydantic import validator
+from pydantic_settings import BaseSettings
 
 # 以下配置和镜像目录相关，不可改动！！！
 # ָbisheng-ft命令的输出根目录
