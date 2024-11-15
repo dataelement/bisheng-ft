@@ -176,6 +176,7 @@ def trval_main(args):
     #         train_cmd += f'''--lora_target {base_config['default_module']}'''
 
     # phase1: train, print train loss and eval loss, train log saved in trainer_log.jsonl
+    train_cmd = f'''ASCEND_RT_VISIBLE_DEVICES={gpus} {train_cmd}'''
     logger.info('train_cmd:' + train_cmd)
     train_p = subprocess.Popen(train_cmd, shell=True, stdout=sys.stdout, stderr=sys.stderr)
     exit_code = train_p.wait()
