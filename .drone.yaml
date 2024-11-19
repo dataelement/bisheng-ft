@@ -58,6 +58,7 @@ steps: # 定义流水线执行步骤，这些步骤将顺序执行
     commands:
       - docker login -u $cr_user -p $cr_password $cr_repo_host
       - docker login -u $docker_user -p $docker_password
+      - cd docker/docker-cuda/
       - docker-compose build --build-arg IMAGE_NAME=$docker_repo --build-arg IMAGE_TAG=$version
       - docker push $docker_repo:$version
       - docker tag $docker_repo:$version $cr_repo_host/$docker_repo:$version
