@@ -12,6 +12,9 @@ services:
         INSTALL_HQQ: false
         INSTALL_EETQ: false
         PIP_INDEX: https://pypi.tuna.tsinghua.edu.cn/simple
+        MAGE_NAME: ${IMAGE_NAME:-bisheng-ft}  # 使用环境变量 IMAGE_NAME，默认为 myapp
+        IMAGE_TAG: ${IMAGE_TAG:-latest}   # 使用环境变量 IMAGE_TAG，默认为 latest
+    image: ${IMAGE_NAME}:${IMAGE_TAG}  # 使用变量在镜像名中
     container_name: bisheng-ft
     volumes:
       - ../../hf_cache:/root/.cache/huggingface
