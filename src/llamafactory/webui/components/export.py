@@ -1,4 +1,4 @@
-# Copyright 2024 the LlamaFactory team.
+# Copyright 2025 the LlamaFactory team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Dict, Generator, List, Union
+import json
+from collections.abc import Generator
+from typing import TYPE_CHECKING, Union
 
 from ...extras.constants import PEFT_METHODS
 from ...extras.misc import torch_gc
 from ...extras.packages import is_gradio_available
 from ...train.tuner import export_model
-from ..common import GPTQ_BITS, get_save_dir
+from ..common import get_save_dir, load_config
 from ..locales import ALERTS
 
 
@@ -32,7 +34,10 @@ if TYPE_CHECKING:
     from ..engine import Engine
 
 
-def can_quantize(checkpoint_path: Union[str, List[str]]) -> "gr.Dropdown":
+GPTQ_BITS = ["8", "4", "3", "2"]
+
+
+def can_quantize(checkpoint_path: Union[str, list[str]]) -> "gr.Dropdown":
     if isinstance(checkpoint_path, list) and len(checkpoint_path) != 0:
         return gr.Dropdown(value="none", interactive=False)
     else:
@@ -44,7 +49,7 @@ def save_model(
     model_name: str,
     model_path: str,
     finetuning_type: str,
-    checkpoint_path: Union[str, List[str]],
+    checkpoint_path: Union[str, list[str]],
     template: str,
     export_size: int,
     export_quantization_bit: str,
@@ -53,7 +58,9 @@ def save_model(
     export_legacy_format: bool,
     export_dir: str,
     export_hub_model_id: str,
+    extra_args: str,
 ) -> Generator[str, None, None]:
+    user_config = load_config()
     error = ""
     if not model_name:
         error = ALERTS["err_no_model"][lang]
@@ -68,6 +75,11 @@ def save_model(
     elif export_quantization_bit in GPTQ_BITS and checkpoint_path and isinstance(checkpoint_path, list):
         error = ALERTS["err_gptq_lora"][lang]
 
+    try:
+        json.loads(extra_args)
+    except json.JSONDecodeError:
+        error = ALERTS["err_json_schema"][lang]
+
     if error:
         gr.Warning(error)
         yield error
@@ -75,6 +87,7 @@ def save_model(
 
     args = dict(
         model_name_or_path=model_path,
+        cache_dir=user_config.get("cache_dir", None),
         finetuning_type=finetuning_type,
         template=template,
         export_dir=export_dir,
@@ -84,7 +97,9 @@ def save_model(
         export_quantization_dataset=export_quantization_dataset,
         export_device=export_device,
         export_legacy_format=export_legacy_format,
+        trust_remote_code=True,
     )
+    args.update(json.loads(extra_args))
 
     if checkpoint_path:
         if finetuning_type in PEFT_METHODS:  # list
@@ -100,17 +115,18 @@ def save_model(
     yield ALERTS["info_exported"][lang]
 
 
-def create_export_tab(engine: "Engine") -> Dict[str, "Component"]:
+def create_export_tab(engine: "Engine") -> dict[str, "Component"]:
     with gr.Row():
         export_size = gr.Slider(minimum=1, maximum=100, value=5, step=1)
         export_quantization_bit = gr.Dropdown(choices=["none"] + GPTQ_BITS, value="none")
-        export_quantization_dataset = gr.Textbox(value="data/c4_demo.json")
+        export_quantization_dataset = gr.Textbox(value="data/c4_demo.jsonl")
         export_device = gr.Radio(choices=["cpu", "auto"], value="cpu")
         export_legacy_format = gr.Checkbox()
 
     with gr.Row():
         export_dir = gr.Textbox()
         export_hub_model_id = gr.Textbox()
+        extra_args = gr.Textbox(value="{}")
 
     checkpoint_path: gr.Dropdown = engine.manager.get_elem_by_id("top.checkpoint_path")
     checkpoint_path.change(can_quantize, [checkpoint_path], [export_quantization_bit], queue=False)
@@ -134,6 +150,7 @@ def create_export_tab(engine: "Engine") -> Dict[str, "Component"]:
             export_legacy_format,
             export_dir,
             export_hub_model_id,
+            extra_args,
         ],
         [info_box],
     )
@@ -146,6 +163,7 @@ def create_export_tab(engine: "Engine") -> Dict[str, "Component"]:
         export_legacy_format=export_legacy_format,
         export_dir=export_dir,
         export_hub_model_id=export_hub_model_id,
+        extra_args=extra_args,
         export_btn=export_btn,
         info_box=info_box,
     )

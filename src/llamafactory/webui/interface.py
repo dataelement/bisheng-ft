@@ -1,4 +1,4 @@
-# Copyright 2024 the LlamaFactory team.
+# Copyright 2025 the LlamaFactory team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,16 @@
 # limitations under the License.
 
 import os
+import platform
 
+from ..extras.misc import fix_proxy, is_env_enabled
 from ..extras.packages import is_gradio_available
 from .common import save_config
 from .components import (
     create_chat_box,
     create_eval_tab,
     create_export_tab,
+    create_footer,
     create_infer_tab,
     create_top,
     create_train_tab,
@@ -34,18 +37,17 @@ if is_gradio_available():
 
 def create_ui(demo_mode: bool = False) -> "gr.Blocks":
     engine = Engine(demo_mode=demo_mode, pure_chat=False)
+    hostname = os.getenv("HOSTNAME", os.getenv("COMPUTERNAME", platform.node())).split(".")[0]
 
-    with gr.Blocks(title="LLaMA Board", css=CSS) as demo:
+    with gr.Blocks(title=f"LLaMA Factory ({hostname})", css=CSS) as demo:
+        title = gr.HTML()
+        subtitle = gr.HTML()
         if demo_mode:
-            gr.HTML("<h1><center>LLaMA Board: A One-stop Web UI for Getting Started with LLaMA Factory</center></h1>")
-            gr.HTML(
-                '<h3><center>Visit <a href="https://github.com/hiyouga/LLaMA-Factory" target="_blank">'
-                "LLaMA Factory</a> for details.</center></h3>"
-            )
             gr.DuplicateButton(value="Duplicate Space for private use", elem_classes="duplicate-button")
 
+        engine.manager.add_elems("head", {"title": title, "subtitle": subtitle})
         engine.manager.add_elems("top", create_top())
-        lang: "gr.Dropdown" = engine.manager.get_elem_by_id("top.lang")
+        lang: gr.Dropdown = engine.manager.get_elem_by_id("top.lang")
 
         with gr.Tab("Train"):
             engine.manager.add_elems("train", create_train_tab(engine))
@@ -60,6 +62,7 @@ def create_ui(demo_mode: bool = False) -> "gr.Blocks":
             with gr.Tab("Export"):
                 engine.manager.add_elems("export", create_export_tab(engine))
 
+        engine.manager.add_elems("footer", create_footer())
         demo.load(engine.resume, outputs=engine.manager.get_elem_list(), concurrency_limit=None)
         lang.change(engine.change_lang, [lang], engine.manager.get_elem_list(), queue=False)
         lang.input(save_config, inputs=[lang], queue=False)
@@ -69,9 +72,10 @@ def create_ui(demo_mode: bool = False) -> "gr.Blocks":
 
 def create_web_demo() -> "gr.Blocks":
     engine = Engine(pure_chat=True)
+    hostname = os.getenv("HOSTNAME", os.getenv("COMPUTERNAME", platform.node())).split(".")[0]
 
-    with gr.Blocks(title="Web Demo", css=CSS) as demo:
-        lang = gr.Dropdown(choices=["en", "ru", "zh", "ko"], scale=1)
+    with gr.Blocks(title=f"LLaMA Factory Web Demo ({hostname})", css=CSS) as demo:
+        lang = gr.Dropdown(choices=["en", "ru", "zh", "ko", "ja"], scale=1)
         engine.manager.add_elems("top", dict(lang=lang))
 
         _, _, chat_elems = create_chat_box(engine, visible=True)
@@ -85,12 +89,18 @@ def create_web_demo() -> "gr.Blocks":
 
 
 def run_web_ui() -> None:
-    gradio_share = os.environ.get("GRADIO_SHARE", "0").lower() in ["true", "1"]
-    server_name = os.environ.get("GRADIO_SERVER_NAME", "0.0.0.0")
+    gradio_ipv6 = is_env_enabled("GRADIO_IPV6")
+    gradio_share = is_env_enabled("GRADIO_SHARE")
+    server_name = os.getenv("GRADIO_SERVER_NAME", "[::]" if gradio_ipv6 else "0.0.0.0")
+    print("Visit http://ip:port for Web UI, e.g., http://127.0.0.1:7860")
+    fix_proxy(ipv6_enabled=gradio_ipv6)
     create_ui().queue().launch(share=gradio_share, server_name=server_name, inbrowser=True)
 
 
 def run_web_demo() -> None:
-    gradio_share = os.environ.get("GRADIO_SHARE", "0").lower() in ["true", "1"]
-    server_name = os.environ.get("GRADIO_SERVER_NAME", "0.0.0.0")
+    gradio_ipv6 = is_env_enabled("GRADIO_IPV6")
+    gradio_share = is_env_enabled("GRADIO_SHARE")
+    server_name = os.getenv("GRADIO_SERVER_NAME", "[::]" if gradio_ipv6 else "0.0.0.0")
+    print("Visit http://ip:port for Web UI, e.g., http://127.0.0.1:7860")
+    fix_proxy(ipv6_enabled=gradio_ipv6)
     create_web_demo().queue().launch(share=gradio_share, server_name=server_name, inbrowser=True)

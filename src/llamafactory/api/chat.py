@@ -1,4 +1,4 @@
-# Copyright 2024 the LlamaFactory team.
+# Copyright 2025 the LlamaFactory team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,13 @@ import json
 import os
 import re
 import uuid
-from typing import TYPE_CHECKING, AsyncGenerator, Dict, List, Optional, Tuple
+from collections.abc import AsyncGenerator
+from typing import TYPE_CHECKING, Optional
 
 from ..data import Role as DataRole
-from ..extras.logging import get_logger
+from ..extras import logging
+from ..extras.constants import AUDIO_PLACEHOLDER, IMAGE_PLACEHOLDER, VIDEO_PLACEHOLDER
+from ..extras.misc import is_env_enabled
 from ..extras.packages import is_fastapi_available, is_pillow_available, is_requests_available
 from .common import dictify, jsonify
 from .protocol import (
@@ -53,11 +56,11 @@ if is_requests_available():
 
 if TYPE_CHECKING:
     from ..chat import ChatModel
-    from ..data.mm_plugin import ImageInput
+    from ..data.mm_plugin import AudioInput, ImageInput, VideoInput
     from .protocol import ChatCompletionRequest, ScoreEvaluationRequest
 
 
-logger = get_logger(__name__)
+logger = logging.get_logger(__name__)
 ROLE_MAPPING = {
     Role.USER: DataRole.USER.value,
     Role.ASSISTANT: DataRole.ASSISTANT.value,
@@ -69,14 +72,23 @@ ROLE_MAPPING = {
 
 def _process_request(
     request: "ChatCompletionRequest",
-) -> Tuple[List[Dict[str, str]], Optional[str], Optional[str], Optional["ImageInput"]]:
-    logger.info("==== request ====\n{}".format(json.dumps(dictify(request), indent=2, ensure_ascii=False)))
+) -> tuple[
+    list[dict[str, str]],
+    Optional[str],
+    Optional[str],
+    Optional[list["ImageInput"]],
+    Optional[list["VideoInput"]],
+    Optional[list["AudioInput"]],
+]:
+    if is_env_enabled("API_VERBOSE", "1"):
+        logger.info_rank0(f"==== request ====\n{json.dumps(dictify(request), indent=2, ensure_ascii=False)}")
 
     if len(request.messages) == 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid length")
 
     if request.messages[0].role == Role.SYSTEM:
-        system = request.messages.pop(0).content
+        content = request.messages.pop(0).content
+        system = content[0].text if isinstance(content, list) else content
     else:
         system = None
 
@@ -84,7 +96,7 @@ def _process_request(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only supports u/a/u/a/u...")
 
     input_messages = []
-    image = None
+    images, videos, audios = [], [], []
     for i, message in enumerate(request.messages):
         if i % 2 == 0 and message.role not in [Role.USER, Role.TOOL]:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid role")
@@ -99,10 +111,12 @@ def _process_request(
             content = json.dumps(tool_calls, ensure_ascii=False)
             input_messages.append({"role": ROLE_MAPPING[Role.FUNCTION], "content": content})
         elif isinstance(message.content, list):
+            text_content = ""
             for input_item in message.content:
                 if input_item.type == "text":
-                    input_messages.append({"role": ROLE_MAPPING[message.role], "content": input_item.text})
-                else:
+                    text_content += input_item.text
+                elif input_item.type == "image_url":
+                    text_content += IMAGE_PLACEHOLDER
                     image_url = input_item.image_url.url
                     if re.match(r"^data:image\/(png|jpg|jpeg|gif|bmp);base64,(.+)$", image_url):  # base64 image
                         image_stream = io.BytesIO(base64.b64decode(image_url.split(",", maxsplit=1)[1]))
@@ -111,7 +125,35 @@ def _process_request(
                     else:  # web uri
                         image_stream = requests.get(image_url, stream=True).raw
 
-                    image = Image.open(image_stream).convert("RGB")
+                    images.append(Image.open(image_stream).convert("RGB"))
+                elif input_item.type == "video_url":
+                    text_content += VIDEO_PLACEHOLDER
+                    video_url = input_item.video_url.url
+                    if re.match(r"^data:video\/(mp4|mkv|avi|mov);base64,(.+)$", video_url):  # base64 video
+                        video_stream = io.BytesIO(base64.b64decode(video_url.split(",", maxsplit=1)[1]))
+                    elif os.path.isfile(video_url):  # local file
+                        video_stream = video_url
+                    else:  # web uri
+                        video_stream = requests.get(video_url, stream=True).raw
+
+                    videos.append(video_stream)
+                elif input_item.type == "audio_url":
+                    text_content += AUDIO_PLACEHOLDER
+                    audio_url = input_item.audio_url.url
+                    if re.match(r"^data:audio\/(mpeg|mp3|wav|ogg);base64,(.+)$", audio_url):  # base64 audio
+                        audio_stream = io.BytesIO(base64.b64decode(audio_url.split(",", maxsplit=1)[1]))
+                    elif os.path.isfile(audio_url):  # local file
+                        audio_stream = audio_url
+                    else:  # web uri
+                        audio_stream = requests.get(audio_url, stream=True).raw
+
+                    audios.append(audio_stream)
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid input type {input_item.type}."
+                    )
+
+            input_messages.append({"role": ROLE_MAPPING[message.role], "content": text_content})
         else:
             input_messages.append({"role": ROLE_MAPPING[message.role], "content": message.content})
 
@@ -124,7 +166,7 @@ def _process_request(
     else:
         tools = None
 
-    return input_messages, system, tools, image
+    return input_messages, system, tools, images or None, videos or None, audios or None
 
 
 def _create_stream_chat_completion_chunk(
@@ -142,18 +184,21 @@ def _create_stream_chat_completion_chunk(
 async def create_chat_completion_response(
     request: "ChatCompletionRequest", chat_model: "ChatModel"
 ) -> "ChatCompletionResponse":
-    completion_id = "chatcmpl-{}".format(uuid.uuid4().hex)
-    input_messages, system, tools, image = _process_request(request)
+    completion_id = f"chatcmpl-{uuid.uuid4().hex}"
+    input_messages, system, tools, images, videos, audios = _process_request(request)
     responses = await chat_model.achat(
         input_messages,
         system,
         tools,
-        image,
+        images,
+        videos,
+        audios,
         do_sample=request.do_sample,
         temperature=request.temperature,
         top_p=request.top_p,
         max_new_tokens=request.max_tokens,
         num_return_sequences=request.n,
+        repetition_penalty=request.presence_penalty,
         stop=request.stop,
     )
 
@@ -168,8 +213,8 @@ async def create_chat_completion_response(
         if isinstance(result, list):
             tool_calls = []
             for tool in result:
-                function = Function(name=tool[0], arguments=tool[1])
-                tool_calls.append(FunctionCall(id="call_{}".format(uuid.uuid4().hex), function=function))
+                function = Function(name=tool.name, arguments=tool.arguments)
+                tool_calls.append(FunctionCall(id=f"call_{uuid.uuid4().hex}", function=function))
 
             response_message = ChatCompletionMessage(role=Role.ASSISTANT, tool_calls=tool_calls)
             finish_reason = Finish.TOOL
@@ -193,8 +238,8 @@ async def create_chat_completion_response(
 async def create_stream_chat_completion_response(
     request: "ChatCompletionRequest", chat_model: "ChatModel"
 ) -> AsyncGenerator[str, None]:
-    completion_id = "chatcmpl-{}".format(uuid.uuid4().hex)
-    input_messages, system, tools, image = _process_request(request)
+    completion_id = f"chatcmpl-{uuid.uuid4().hex}"
+    input_messages, system, tools, images, videos, audios = _process_request(request)
     if tools:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot stream function calls.")
 
@@ -208,11 +253,14 @@ async def create_stream_chat_completion_response(
         input_messages,
         system,
         tools,
-        image,
+        images,
+        videos,
+        audios,
         do_sample=request.do_sample,
         temperature=request.temperature,
         top_p=request.top_p,
         max_new_tokens=request.max_tokens,
+        repetition_penalty=request.presence_penalty,
         stop=request.stop,
     ):
         if len(new_token) != 0:
@@ -229,7 +277,7 @@ async def create_stream_chat_completion_response(
 async def create_score_evaluation_response(
     request: "ScoreEvaluationRequest", chat_model: "ChatModel"
 ) -> "ScoreEvaluationResponse":
-    score_id = "scoreval-{}".format(uuid.uuid4().hex)
+    score_id = f"scoreval-{uuid.uuid4().hex}"
     if len(request.messages) == 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid request")
 

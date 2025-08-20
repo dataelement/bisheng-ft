@@ -1,4 +1,4 @@
-# Copyright 2024 the LlamaFactory team.
+# Copyright 2025 the LlamaFactory team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,18 @@
 
 import json
 import os
-from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, Sequence, Tuple
+from collections.abc import Generator
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any, Optional
+
+from transformers.utils import is_torch_npu_available
 
 from ..chat import ChatModel
 from ..data import Role
 from ..extras.constants import PEFT_METHODS
 from ..extras.misc import torch_gc
 from ..extras.packages import is_gradio_available
-from .common import QUANTIZATION_BITS, get_save_dir
+from .common import get_save_dir, load_config
 from .locales import ALERTS
 
 
@@ -34,19 +38,58 @@ if is_gradio_available():
     import gradio as gr
 
 
+def _escape_html(text: str) -> str:
+    r"""Escape HTML characters."""
+    return text.replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _format_response(text: str, lang: str, escape_html: bool, thought_words: tuple[str, str]) -> str:
+    r"""Post-process the response text.
+
+    Based on: https://huggingface.co/spaces/Lyte/DeepSeek-R1-Distill-Qwen-1.5B-Demo-GGUF/blob/main/app.py
+    """
+    if thought_words[0] not in text:
+        return _escape_html(text) if escape_html else text
+
+    text = text.replace(thought_words[0], "")
+    result = text.split(thought_words[1], maxsplit=1)
+    if len(result) == 1:
+        summary = ALERTS["info_thinking"][lang]
+        thought, answer = text, ""
+    else:
+        summary = ALERTS["info_thought"][lang]
+        thought, answer = result
+
+    if escape_html:
+        thought, answer = _escape_html(thought), _escape_html(answer)
+
+    return (
+        f"<details open><summary class='thinking-summary'><span>{summary}</span></summary>\n\n"
+        f"<div class='thinking-container'>\n{thought}\n</div>\n</details>{answer}"
+    )
+
+
+@contextmanager
+def update_attr(obj: Any, name: str, value: Any):
+    old_value = getattr(obj, name, None)
+    setattr(obj, name, value)
+    yield
+    setattr(obj, name, old_value)
+
+
 class WebChatModel(ChatModel):
     def __init__(self, manager: "Manager", demo_mode: bool = False, lazy_init: bool = True) -> None:
         self.manager = manager
         self.demo_mode = demo_mode
-        self.engine: Optional["BaseEngine"] = None
+        self.engine: Optional[BaseEngine] = None
 
         if not lazy_init:  # read arguments from command line
             super().__init__()
 
-        if demo_mode and os.environ.get("DEMO_MODEL") and os.environ.get("DEMO_TEMPLATE"):  # load demo model
-            model_name_or_path = os.environ.get("DEMO_MODEL")
-            template = os.environ.get("DEMO_TEMPLATE")
-            infer_backend = os.environ.get("DEMO_BACKEND", "huggingface")
+        if demo_mode and os.getenv("DEMO_MODEL") and os.getenv("DEMO_TEMPLATE"):  # load demo model
+            model_name_or_path = os.getenv("DEMO_MODEL")
+            template = os.getenv("DEMO_TEMPLATE")
+            infer_backend = os.getenv("DEMO_BACKEND", "huggingface")
             super().__init__(
                 dict(model_name_or_path=model_name_or_path, template=template, infer_backend=infer_backend)
             )
@@ -59,6 +102,8 @@ class WebChatModel(ChatModel):
         get = lambda elem_id: data[self.manager.get_elem_by_id(elem_id)]
         lang, model_name, model_path = get("top.lang"), get("top.model_name"), get("top.model_path")
         finetuning_type, checkpoint_path = get("top.finetuning_type"), get("top.checkpoint_path")
+        user_config = load_config()
+
         error = ""
         if self.loaded:
             error = ALERTS["err_exists"][lang]
@@ -69,30 +114,33 @@ class WebChatModel(ChatModel):
         elif self.demo_mode:
             error = ALERTS["err_demo"][lang]
 
+        try:
+            json.loads(get("infer.extra_args"))
+        except json.JSONDecodeError:
+            error = ALERTS["err_json_schema"][lang]
+
         if error:
             gr.Warning(error)
             yield error
             return
 
-        if get("top.quantization_bit") in QUANTIZATION_BITS:
-            quantization_bit = int(get("top.quantization_bit"))
-        else:
-            quantization_bit = None
-
         yield ALERTS["info_loading"][lang]
         args = dict(
             model_name_or_path=model_path,
+            cache_dir=user_config.get("cache_dir", None),
             finetuning_type=finetuning_type,
-            quantization_bit=quantization_bit,
-            quantization_method=get("top.quantization_method"),
             template=get("top.template"),
+            rope_scaling=get("top.rope_scaling") if get("top.rope_scaling") != "none" else None,
             flash_attn="fa2" if get("top.booster") == "flashattn2" else "auto",
             use_unsloth=(get("top.booster") == "unsloth"),
-            rope_scaling=get("top.rope_scaling") if get("top.rope_scaling") in ["linear", "dynamic"] else None,
+            enable_liger_kernel=(get("top.booster") == "liger_kernel"),
             infer_backend=get("infer.infer_backend"),
             infer_dtype=get("infer.infer_dtype"),
+            trust_remote_code=True,
         )
+        args.update(json.loads(get("infer.extra_args")))
 
+        # checkpoints
         if checkpoint_path:
             if finetuning_type in PEFT_METHODS:  # list
                 args["adapter_name_or_path"] = ",".join(
@@ -100,6 +148,12 @@ class WebChatModel(ChatModel):
                 )
             else:  # str
                 args["model_name_or_path"] = get_save_dir(model_name, finetuning_type, checkpoint_path)
+
+        # quantization
+        if get("top.quantization_bit") != "none":
+            args["quantization_bit"] = int(get("top.quantization_bit"))
+            args["quantization_method"] = get("top.quantization_method")
+            args["double_quantization"] = not is_torch_npu_available()
 
         super().__init__(args)
         yield ALERTS["info_loaded"][lang]
@@ -117,46 +171,76 @@ class WebChatModel(ChatModel):
         torch_gc()
         yield ALERTS["info_unloaded"][lang]
 
+    @staticmethod
     def append(
-        self,
-        chatbot: List[List[Optional[str]]],
-        messages: Sequence[Dict[str, str]],
+        chatbot: list[dict[str, str]],
+        messages: list[dict[str, str]],
         role: str,
         query: str,
-    ) -> Tuple[List[List[Optional[str]]], List[Dict[str, str]], str]:
-        return chatbot + [[query, None]], messages + [{"role": role, "content": query}], ""
+        escape_html: bool,
+    ) -> tuple[list[dict[str, str]], list[dict[str, str]], str]:
+        r"""Add the user input to chatbot.
+
+        Inputs: infer.chatbot, infer.messages, infer.role, infer.query, infer.escape_html
+        Output: infer.chatbot, infer.messages, infer.query
+        """
+        return (
+            chatbot + [{"role": "user", "content": _escape_html(query) if escape_html else query}],
+            messages + [{"role": role, "content": query}],
+            "",
+        )
 
     def stream(
         self,
-        chatbot: List[List[Optional[str]]],
-        messages: Sequence[Dict[str, str]],
+        chatbot: list[dict[str, str]],
+        messages: list[dict[str, str]],
+        lang: str,
         system: str,
         tools: str,
         image: Optional[Any],
         video: Optional[Any],
+        audio: Optional[Any],
         max_new_tokens: int,
         top_p: float,
         temperature: float,
-    ) -> Generator[Tuple[List[List[Optional[str]]], List[Dict[str, str]]], None, None]:
-        chatbot[-1][1] = ""
-        response = ""
-        for new_text in self.stream_chat(
-            messages, system, tools, image, video, max_new_tokens=max_new_tokens, top_p=top_p, temperature=temperature
-        ):
-            response += new_text
-            if tools:
-                result = self.engine.template.extract_tool(response)
-            else:
-                result = response
+        skip_special_tokens: bool,
+        escape_html: bool,
+        enable_thinking: bool,
+    ) -> Generator[tuple[list[dict[str, str]], list[dict[str, str]]], None, None]:
+        r"""Generate output text in stream.
 
-            if isinstance(result, list):
-                tool_calls = [{"name": tool[0], "arguments": json.loads(tool[1])} for tool in result]
-                tool_calls = json.dumps(tool_calls, indent=4, ensure_ascii=False)
-                output_messages = messages + [{"role": Role.FUNCTION.value, "content": tool_calls}]
-                bot_text = "```json\n" + tool_calls + "\n```"
-            else:
-                output_messages = messages + [{"role": Role.ASSISTANT.value, "content": result}]
-                bot_text = result
+        Inputs: infer.chatbot, infer.messages, infer.system, infer.tools, infer.image, infer.video, ...
+        Output: infer.chatbot, infer.messages
+        """
+        with update_attr(self.engine.template, "enable_thinking", enable_thinking):
+            chatbot.append({"role": "assistant", "content": ""})
+            response = ""
+            for new_text in self.stream_chat(
+                messages,
+                system,
+                tools,
+                images=[image] if image else None,
+                videos=[video] if video else None,
+                audios=[audio] if audio else None,
+                max_new_tokens=max_new_tokens,
+                top_p=top_p,
+                temperature=temperature,
+                skip_special_tokens=skip_special_tokens,
+            ):
+                response += new_text
+                if tools:
+                    result = self.engine.template.extract_tool(response)
+                else:
+                    result = response
 
-            chatbot[-1][1] = bot_text
-            yield chatbot, output_messages
+                if isinstance(result, list):
+                    tool_calls = [{"name": tool.name, "arguments": json.loads(tool.arguments)} for tool in result]
+                    tool_calls = json.dumps(tool_calls, ensure_ascii=False)
+                    output_messages = messages + [{"role": Role.FUNCTION.value, "content": tool_calls}]
+                    bot_text = "```json\n" + tool_calls + "\n```"
+                else:
+                    output_messages = messages + [{"role": Role.ASSISTANT.value, "content": result}]
+                    bot_text = _format_response(result, lang, escape_html, self.engine.template.thought_words)
+
+                chatbot[-1] = {"role": "assistant", "content": bot_text}
+                yield chatbot, output_messages

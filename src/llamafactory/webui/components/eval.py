@@ -1,4 +1,4 @@
-# Copyright 2024 the LlamaFactory team.
+# Copyright 2025 the LlamaFactory team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING
 
 from ...extras.packages import is_gradio_available
-from ..common import DEFAULT_DATA_DIR, list_datasets
+from ..common import DEFAULT_DATA_DIR
+from ..control import list_datasets
 from .data import create_preview_box
 
 
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
     from ..engine import Engine
 
 
-def create_eval_tab(engine: "Engine") -> Dict[str, "Component"]:
+def create_eval_tab(engine: "Engine") -> dict[str, "Component"]:
     input_elems = engine.manager.get_base_elems()
     elem_dict = dict()
 

@@ -1,4 +1,4 @@
-# Copyright 2024 HuggingFace Inc. and the LlamaFactory team.
+# Copyright 2025 HuggingFace Inc. and the LlamaFactory team.
 #
 # This code is inspired by the HuggingFace's transformers library.
 # https://github.com/huggingface/transformers/blob/v4.40.0/examples/pytorch/language-modeling/run_clm.py
@@ -16,7 +16,7 @@
 # limitations under the License.
 
 import math
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 from transformers import DataCollatorForLanguageModeling
 
@@ -38,7 +38,7 @@ def run_pt(
     data_args: "DataArguments",
     training_args: "Seq2SeqTrainingArguments",
     finetuning_args: "FinetuningArguments",
-    callbacks: Optional[List["TrainerCallback"]] = None,
+    callbacks: Optional[list["TrainerCallback"]] = None,
 ):
     tokenizer_module = load_tokenizer(model_args)
     tokenizer = tokenizer_module["tokenizer"]
@@ -66,17 +66,34 @@ def run_pt(
         trainer.save_metrics("train", train_result.metrics)
         trainer.save_state()
         if trainer.is_world_process_zero() and finetuning_args.plot_loss:
-            plot_loss(training_args.output_dir, keys=["loss", "eval_loss"])
+            keys = ["loss"]
+            if isinstance(dataset_module.get("eval_dataset"), dict):
+                keys += [f"eval_{key}_loss" for key in dataset_module["eval_dataset"].keys()]
+            else:
+                keys += ["eval_loss"]
+
+            plot_loss(training_args.output_dir, keys=keys)
 
     # Evaluation
     if training_args.do_eval:
         metrics = trainer.evaluate(metric_key_prefix="eval")
-        try:
-            perplexity = math.exp(metrics["eval_loss"])
-        except OverflowError:
-            perplexity = float("inf")
 
-        metrics["perplexity"] = perplexity
+        if isinstance(dataset_module.get("eval_dataset"), dict):
+            for key in dataset_module["eval_dataset"].keys():
+                try:
+                    perplexity = math.exp(metrics[f"eval_{key}_loss"])
+                except OverflowError:
+                    perplexity = float("inf")
+
+                metrics[f"eval_{key}_perplexity"] = perplexity
+        else:
+            try:
+                perplexity = math.exp(metrics["eval_loss"])
+            except OverflowError:
+                perplexity = float("inf")
+
+            metrics["eval_perplexity"] = perplexity
+
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)
 

@@ -1,4 +1,4 @@
-# Copyright 2024 the LlamaFactory team.
+# Copyright 2025 the LlamaFactory team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Optional, Sequence
+from typing import Any, Literal, Optional, Union
 
-from transformers.utils import cached_file
+from huggingface_hub import hf_hub_download
 
 from ..extras.constants import DATA_CONFIG
 from ..extras.misc import use_modelscope, use_openmind
@@ -25,9 +25,7 @@ from ..extras.misc import use_modelscope, use_openmind
 
 @dataclass
 class DatasetAttr:
-    r"""
-    Dataset attributes.
-    """
+    r"""Dataset attributes."""
 
     # basic configs
     load_from: Literal["hf_hub", "ms_hub", "om_hub", "script", "file"]
@@ -44,7 +42,8 @@ class DatasetAttr:
     tools: Optional[str] = None
     images: Optional[str] = None
     videos: Optional[str] = None
-    # rlhf columns
+    audios: Optional[str] = None
+    # dpo columns
     chosen: Optional[str] = None
     rejected: Optional[str] = None
     kto_tag: Optional[str] = None
@@ -67,52 +66,64 @@ class DatasetAttr:
     def __repr__(self) -> str:
         return self.dataset_name
 
-    def set_attr(self, key: str, obj: Dict[str, Any], default: Optional[Any] = None) -> None:
+    def set_attr(self, key: str, obj: dict[str, Any], default: Optional[Any] = None) -> None:
         setattr(self, key, obj.get(key, default))
 
+    def join(self, attr: dict[str, Any]) -> None:
+        self.set_attr("formatting", attr, default="alpaca")
+        self.set_attr("ranking", attr, default=False)
+        self.set_attr("subset", attr)
+        self.set_attr("split", attr, default="train")
+        self.set_attr("folder", attr)
+        self.set_attr("num_samples", attr)
 
-def get_dataset_list(dataset_names: Optional[Sequence[str]],
-                     dataset_dir: str) -> List["DatasetAttr"]:
-    r"""
-    Gets the attributes of the datasets.
-    """
+        if "columns" in attr:
+            column_names = ["prompt", "query", "response", "history", "messages", "system", "tools"]
+            column_names += ["images", "videos", "audios", "chosen", "rejected", "kto_tag"]
+            for column_name in column_names:
+                self.set_attr(column_name, attr["columns"])
+
+        if "tags" in attr:
+            tag_names = ["role_tag", "content_tag"]
+            tag_names += ["user_tag", "assistant_tag", "observation_tag", "function_tag", "system_tag"]
+            for tag in tag_names:
+                self.set_attr(tag, attr["tags"])
+
+
+def get_dataset_list(dataset_names: Optional[list[str]], dataset_dir: Union[str, dict]) -> list["DatasetAttr"]:
+    r"""Get the attributes of the datasets."""
     if dataset_names is None:
         dataset_names = []
 
-    if dataset_dir == "ONLINE":
+    if isinstance(dataset_dir, dict):
+        dataset_info = dataset_dir
+    elif dataset_dir == "ONLINE":
         dataset_info = None
     else:
         if dataset_dir.startswith("REMOTE:"):
-            config_path = cached_file(path_or_repo_id=dataset_dir[7:],
-                                      filename=DATA_CONFIG,
-                                      repo_type="dataset")
+            config_path = hf_hub_download(repo_id=dataset_dir[7:], filename=DATA_CONFIG, repo_type="dataset")
         else:
             config_path = os.path.join(dataset_dir, DATA_CONFIG)
 
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 dataset_info = json.load(f)
         except Exception as err:
             if len(dataset_names) != 0:
-                raise ValueError("Cannot open {} due to {}.".format(config_path, str(err)))
+                raise ValueError(f"Cannot open {config_path} due to {str(err)}.")
 
             dataset_info = None
 
-    dataset_list: List["DatasetAttr"] = []
+    dataset_list: list[DatasetAttr] = []
     for name in dataset_names:
         if dataset_info is None:  # dataset_dir is ONLINE
-            if use_modelscope():
-                load_from = "ms_hub"
-            elif use_openmind():
-                load_from = "om_hub"
-            else:
-                load_from = "hf_hub"
+            load_from = "ms_hub" if use_modelscope() else "om_hub" if use_openmind() else "hf_hub"
             dataset_attr = DatasetAttr(load_from, dataset_name=name)
             dataset_list.append(dataset_attr)
             continue
 
         if name not in dataset_info:
-            raise ValueError("Undefined dataset {} in {}.".format(name, DATA_CONFIG))
+            raise ValueError(f"Undefined dataset {name} in {DATA_CONFIG}.")
 
         has_hf_url = "hf_hub_url" in dataset_info[name]
         has_ms_url = "ms_hub_url" in dataset_info[name]
@@ -127,39 +138,12 @@ def get_dataset_list(dataset_names: Optional[Sequence[str]],
                 dataset_attr = DatasetAttr("hf_hub", dataset_name=dataset_info[name]["hf_hub_url"])
         elif "script_url" in dataset_info[name]:
             dataset_attr = DatasetAttr("script", dataset_name=dataset_info[name]["script_url"])
+        elif "cloud_file_name" in dataset_info[name]:
+            dataset_attr = DatasetAttr("cloud_file", dataset_name=dataset_info[name]["cloud_file_name"])
         else:
             dataset_attr = DatasetAttr("file", dataset_name=dataset_info[name]["file_name"])
 
-        dataset_attr.set_attr("formatting", dataset_info[name], default="alpaca")
-        dataset_attr.set_attr("ranking", dataset_info[name], default=False)
-        dataset_attr.set_attr("subset", dataset_info[name])
-        dataset_attr.set_attr("split", dataset_info[name], default="train")
-        dataset_attr.set_attr("folder", dataset_info[name])
-        dataset_attr.set_attr("num_samples", dataset_info[name])
-
-        if "columns" in dataset_info[name]:
-            column_names = ["system", "tools", "images", "videos", "chosen", "rejected", "kto_tag"]
-            if dataset_attr.formatting == "alpaca":
-                column_names.extend(["prompt", "query", "response", "history"])
-            else:
-                column_names.extend(["messages"])
-
-            for column_name in column_names:
-                dataset_attr.set_attr(column_name, dataset_info[name]["columns"])
-
-        if dataset_attr.formatting == "sharegpt" and "tags" in dataset_info[name]:
-            tag_names = (
-                "role_tag",
-                "content_tag",
-                "user_tag",
-                "assistant_tag",
-                "observation_tag",
-                "function_tag",
-                "system_tag",
-            )
-            for tag in tag_names:
-                dataset_attr.set_attr(tag, dataset_info[name]["tags"])
-
+        dataset_attr.join(dataset_info[name])
         dataset_list.append(dataset_attr)
 
     return dataset_list

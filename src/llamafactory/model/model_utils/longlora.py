@@ -1,4 +1,4 @@
-# Copyright 2024 EleutherAI, HuggingFace Inc., Yukang Chen, and the LlamaFactory team.
+# Copyright 2025 EleutherAI, HuggingFace Inc., Yukang Chen, and the LlamaFactory team.
 #
 # This code is based on the EleutherAI's GPT-NeoX and the HuggingFace's Transformers libraries.
 # https://github.com/huggingface/transformers/blob/v4.40.0/src/transformers/models/llama/modeling_llama.py
@@ -18,24 +18,28 @@
 # limitations under the License.
 
 import math
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Optional
 
 import torch
 import torch.nn as nn
-from transformers.models.llama.modeling_llama import (
-    Cache,
-    LlamaAttention,
-    LlamaFlashAttention2,
-    LlamaSdpaAttention,
-    apply_rotary_pos_emb,
-    repeat_kv,
-)
-from transformers.utils import logging
-from transformers.utils.versions import require_version
+import transformers
 
+from ...extras import logging
 from ...extras.constants import SUPPORTED_CLASS_FOR_S2ATTN
-from ...extras.logging import get_logger
-from ...extras.packages import is_transformers_version_greater_than_4_43
+from ...extras.misc import check_version
+from ...extras.packages import is_transformers_version_greater_than
+
+
+if not is_transformers_version_greater_than("4.48.0"):
+    from transformers.modeling_flash_attention_utils import _flash_attention_forward
+    from transformers.models.llama.modeling_llama import (
+        Cache,
+        LlamaAttention,
+        LlamaFlashAttention2,
+        LlamaSdpaAttention,
+        apply_rotary_pos_emb,
+        repeat_kv,
+    )
 
 
 if TYPE_CHECKING:
@@ -44,7 +48,7 @@ if TYPE_CHECKING:
     from ...hparams import ModelArguments
 
 
-transformers_logger = logging.get_logger(__name__)
+transformers_logger = transformers.utils.logging.get_logger(__name__)
 
 
 # Modified from:
@@ -57,14 +61,14 @@ def llama_attention_forward(
     past_key_value: Optional["Cache"] = None,
     output_attentions: bool = False,
     cache_position: Optional["torch.LongTensor"] = None,
-    position_embeddings: Optional[Tuple["torch.Tensor", "torch.Tensor"]] = None,
+    position_embeddings: Optional[tuple["torch.Tensor", "torch.Tensor"]] = None,
     **kwargs,
-) -> Tuple["torch.Tensor", Optional["torch.Tensor"], Optional[Tuple["torch.Tensor"]]]:
+) -> tuple["torch.Tensor", Optional["torch.Tensor"], Optional[tuple["torch.Tensor"]]]:
     bsz, q_len, _ = hidden_states.size()
 
-    query_states: "torch.Tensor" = self.q_proj(hidden_states)
-    key_states: "torch.Tensor" = self.k_proj(hidden_states)
-    value_states: "torch.Tensor" = self.v_proj(hidden_states)
+    query_states: torch.Tensor = self.q_proj(hidden_states)
+    key_states: torch.Tensor = self.k_proj(hidden_states)
+    value_states: torch.Tensor = self.v_proj(hidden_states)
 
     query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
     key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
@@ -86,7 +90,7 @@ def llama_attention_forward(
 
     if getattr(self.config, "group_size_ratio", None) and self.training:  # shift
         groupsz = int(q_len * getattr(self.config, "group_size_ratio"))
-        assert q_len % groupsz == 0, "q_len {} should be divisible by group size {}.".format(q_len, groupsz)
+        assert q_len % groupsz == 0, f"q_len {q_len} should be divisible by group size {groupsz}."
         num_groups = q_len // groupsz
 
         def shift(state: "torch.Tensor") -> "torch.Tensor":
@@ -142,17 +146,17 @@ def llama_flash_attention_2_forward(
     past_key_value: Optional["Cache"] = None,
     output_attentions: bool = False,
     cache_position: Optional["torch.LongTensor"] = None,
-    position_embeddings: Optional[Tuple["torch.Tensor", "torch.Tensor"]] = None,
+    position_embeddings: Optional[tuple["torch.Tensor", "torch.Tensor"]] = None,
     **kwargs,
-) -> Tuple["torch.Tensor", Optional["torch.Tensor"], Optional[Tuple["torch.Tensor"]]]:
+) -> tuple["torch.Tensor", Optional["torch.Tensor"], Optional[tuple["torch.Tensor"]]]:
     # LlamaFlashAttention2 attention does not support output_attentions
     output_attentions = False
 
     bsz, q_len, _ = hidden_states.size()
 
-    query_states: "torch.Tensor" = self.q_proj(hidden_states)
-    key_states: "torch.Tensor" = self.k_proj(hidden_states)
-    value_states: "torch.Tensor" = self.v_proj(hidden_states)
+    query_states: torch.Tensor = self.q_proj(hidden_states)
+    key_states: torch.Tensor = self.k_proj(hidden_states)
+    value_states: torch.Tensor = self.v_proj(hidden_states)
 
     query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
     key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
@@ -195,7 +199,7 @@ def llama_flash_attention_2_forward(
 
     if getattr(self.config, "group_size_ratio", None) and self.training:  # shift
         groupsz = int(q_len * getattr(self.config, "group_size_ratio"))
-        assert q_len % groupsz == 0, "q_len {} should be divisible by group size {}.".format(q_len, groupsz)
+        assert q_len % groupsz == 0, f"q_len {q_len} should be divisible by group size {groupsz}."
         num_groups = q_len // groupsz
 
         def shift(state: "torch.Tensor") -> "torch.Tensor":
@@ -209,10 +213,7 @@ def llama_flash_attention_2_forward(
         if attention_mask is not None:
             attention_mask = attention_mask[:, :groupsz].repeat(num_groups, 1)
 
-    if is_transformers_version_greater_than_4_43():
-        from transformers.modeling_flash_attention_utils import _flash_attention_forward
-
-        attn_output: "torch.Tensor" = _flash_attention_forward(
+        attn_output: torch.Tensor = _flash_attention_forward(
             query_states,
             key_states,
             value_states,
@@ -222,10 +223,6 @@ def llama_flash_attention_2_forward(
             sliding_window=getattr(self, "sliding_window", None),
             use_top_left_mask=self._flash_attn_uses_top_left_mask,
             is_causal=self.is_causal,
-        )
-    else:
-        attn_output: "torch.Tensor" = self._flash_attention_forward(
-            query_states, key_states, value_states, attention_mask, query_states.size(1), dropout=dropout_rate
         )
 
     if getattr(self.config, "group_size_ratio", None) and self.training:  # shift back
@@ -257,9 +254,9 @@ def llama_sdpa_attention_forward(
     past_key_value: Optional["Cache"] = None,
     output_attentions: bool = False,
     cache_position: Optional["torch.LongTensor"] = None,
-    position_embeddings: Optional[Tuple["torch.Tensor", "torch.Tensor"]] = None,
+    position_embeddings: Optional[tuple["torch.Tensor", "torch.Tensor"]] = None,
     **kwargs,
-) -> Tuple["torch.Tensor", Optional["torch.Tensor"], Optional[Tuple["torch.Tensor"]]]:
+) -> tuple["torch.Tensor", Optional["torch.Tensor"], Optional[tuple["torch.Tensor"]]]:
     if output_attentions:
         transformers_logger.warning_once(
             "SDPA does not support `output_attentions=True`. Falling back to the vanilla attention"
@@ -277,9 +274,9 @@ def llama_sdpa_attention_forward(
 
     bsz, q_len, _ = hidden_states.size()
 
-    query_states: "torch.Tensor" = self.q_proj(hidden_states)
-    key_states: "torch.Tensor" = self.k_proj(hidden_states)
-    value_states: "torch.Tensor" = self.v_proj(hidden_states)
+    query_states: torch.Tensor = self.q_proj(hidden_states)
+    key_states: torch.Tensor = self.k_proj(hidden_states)
+    value_states: torch.Tensor = self.v_proj(hidden_states)
 
     query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
     key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
@@ -301,7 +298,7 @@ def llama_sdpa_attention_forward(
 
     if getattr(self.config, "group_size_ratio", None) and self.training:  # shift
         groupsz = int(q_len * getattr(self.config, "group_size_ratio"))
-        assert q_len % groupsz == 0, "q_len {} should be divisible by group size {}.".format(q_len, groupsz)
+        assert q_len % groupsz == 0, f"q_len {q_len} should be divisible by group size {groupsz}."
         num_groups = q_len // groupsz
 
         def shift(state: "torch.Tensor") -> "torch.Tensor":
@@ -353,7 +350,7 @@ def llama_sdpa_attention_forward(
 
 
 def _apply_llama_patch() -> None:
-    require_version("transformers>=4.41.2,<=4.45.2", "To fix: pip install transformers>=4.41.2,<=4.45.2")
+    check_version("transformers>=4.45.0,<4.48.0", mandatory=True)
     LlamaAttention.forward = llama_attention_forward
     LlamaFlashAttention2.forward = llama_flash_attention_2_forward
     LlamaSdpaAttention.forward = llama_sdpa_attention_forward
@@ -363,11 +360,11 @@ def configure_longlora(config: "PretrainedConfig", model_args: "ModelArguments",
     if not is_trainable or not model_args.shift_attn:
         return
 
-    logger = get_logger(__name__)
+    logger = logging.get_logger(__name__)
 
     if getattr(config, "model_type", None) in SUPPORTED_CLASS_FOR_S2ATTN:
         setattr(config, "group_size_ratio", 0.25)
         _apply_llama_patch()
-        logger.info("Using shift short attention with group_size_ratio=1/4.")
+        logger.info_rank0("Using shift short attention with group_size_ratio=1/4.")
     else:
-        logger.warning("Current model does not support shift short attention.")
+        logger.warning_rank0("Current model does not support shift short attention.")

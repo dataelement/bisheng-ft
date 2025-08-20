@@ -1,4 +1,4 @@
-# Copyright 2024 the LlamaFactory team.
+# Copyright 2025 the LlamaFactory team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 import inspect
 from typing import TYPE_CHECKING
 
-from ...extras.logging import get_logger
+from ...extras import logging
 
 
 if TYPE_CHECKING:
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from ...hparams import ModelArguments
 
 
-logger = get_logger(__name__)
+logger = logging.get_logger(__name__)
 
 
 def apply_liger_kernel(
@@ -41,27 +41,49 @@ def apply_liger_kernel(
         from liger_kernel.transformers import apply_liger_kernel_to_gemma as apply_liger_kernel
     elif model_type == "gemma2":
         from liger_kernel.transformers import apply_liger_kernel_to_gemma2 as apply_liger_kernel
+    elif model_type == "gemma3":
+        from liger_kernel.transformers import apply_liger_kernel_to_gemma3 as apply_liger_kernel
+    elif model_type == "gemma3_text":
+        from liger_kernel.transformers import apply_liger_kernel_to_gemma3_text as apply_liger_kernel
+    elif model_type == "glm4":
+        from liger_kernel.transformers import apply_liger_kernel_to_glm4 as apply_liger_kernel
+    elif model_type == "granite":
+        from liger_kernel.transformers import apply_liger_kernel_to_granite as apply_liger_kernel
     elif model_type == "llama":
         from liger_kernel.transformers import apply_liger_kernel_to_llama as apply_liger_kernel
+    elif model_type == "llava":
+        from liger_kernel.transformers import apply_liger_kernel_to_llava as apply_liger_kernel
     elif model_type == "mistral":
         from liger_kernel.transformers import apply_liger_kernel_to_mistral as apply_liger_kernel
     elif model_type == "mixtral":
         from liger_kernel.transformers import apply_liger_kernel_to_mixtral as apply_liger_kernel
+    elif model_type == "mllama":
+        from liger_kernel.transformers import apply_liger_kernel_to_mllama as apply_liger_kernel
+    elif model_type == "olmo2":
+        from liger_kernel.transformers import apply_liger_kernel_to_olmo2 as apply_liger_kernel
+    elif model_type == "paligemma":
+        from liger_kernel.transformers import apply_liger_kernel_to_paligemma as apply_liger_kernel
     elif model_type == "phi3":
         from liger_kernel.transformers import apply_liger_kernel_to_phi3 as apply_liger_kernel
     elif model_type == "qwen2":
         from liger_kernel.transformers import apply_liger_kernel_to_qwen2 as apply_liger_kernel
     elif model_type == "qwen2_vl":
         from liger_kernel.transformers import apply_liger_kernel_to_qwen2_vl as apply_liger_kernel
+    elif model_type == "qwen2_5_vl":
+        from liger_kernel.transformers import apply_liger_kernel_to_qwen2_5_vl as apply_liger_kernel
+    elif model_type == "qwen3":
+        from liger_kernel.transformers import apply_liger_kernel_to_qwen3 as apply_liger_kernel
+    elif model_type == "qwen3_moe":
+        from liger_kernel.transformers import apply_liger_kernel_to_qwen3_moe as apply_liger_kernel
     else:
-        logger.warning("Current model does not support liger kernel.")
+        logger.warning_rank0("Current model does not support liger kernel.")
         return
 
     if require_logits and "fused_linear_cross_entropy" in inspect.signature(apply_liger_kernel).parameters:
-        logger.info("Current training stage does not support chunked cross entropy.")
-        kwargs = {"fused_linear_cross_entropy": False}
+        logger.info_rank0("Current training stage does not support chunked cross entropy.")
+        kwargs = {"fused_linear_cross_entropy": False, "cross_entropy": True}
     else:
         kwargs = {}
 
     apply_liger_kernel(**kwargs)
-    logger.info("Liger kernel has been applied to the model.")
+    logger.info_rank0("Liger kernel has been applied to the model.")
