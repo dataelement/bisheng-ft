@@ -49,4 +49,4 @@ RUN mkdir -p /opt/bisheng-ft/sft_datasets
 # 拷贝sft-server代码
 COPY src/sft_server /opt/bisheng-ft/sft_server
 RUN mkdir -p /opt/bisheng-ft/sft_log /opt/bisheng-ft/finetune_output
-CMD ["sh start-sft-server.sh"]
+CMD ["bash start-sft-server.sh"]

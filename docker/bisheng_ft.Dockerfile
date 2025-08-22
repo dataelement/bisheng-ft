@@ -53,4 +53,4 @@ COPY ./docker/start-sft-server.sh /opt/bisheng-ft/
 RUN mkdir -p /opt/bisheng-ft/sft_log /opt/bisheng-ft/finetune_output
 
 EXPOSE 8000
-CMD ["sh start-sft-server.sh"]
+CMD bash ./start-sft-server.sh

@@ -25,7 +25,7 @@ services:
     ipc: host
     tty: true
     stdin_open: true
-    command: bash
+    command: bash ./start-sft-server.sh
     devices:
       - /dev/kfd:/dev/kfd
       - /dev/dri:/dev/dri

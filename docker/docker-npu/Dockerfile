@@ -54,4 +54,4 @@ EXPOSE 7860
 # Expose port 8000 for the API service
 ENV API_PORT 8000
 EXPOSE 8000
-CMD ["sh start-sft-server.sh"]
+CMD ["bash start-sft-server.sh"]
