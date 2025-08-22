@@ -1,65 +1,55 @@
-FROM hardandheavy/transformers-rocm:2.2.0
+FROM rocm/pytorch:rocm6.4.1_ubuntu22.04_py3.10_pytorch_release_2.6.0
+
+# Installation arguments
+ARG PIP_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
+ARG EXTRAS=metrics
+ARG INSTALL_FLASHATTN=false
+ARG HTTP_PROXY=""
+ARG PYTORCH_INDEX=https://download.pytorch.org/whl/rocm6.3
 
 # Define environments
-ENV MAX_JOBS=4
+ENV MAX_JOBS=16
 ENV FLASH_ATTENTION_FORCE_BUILD=TRUE
 ENV VLLM_WORKER_MULTIPROC_METHOD=spawn
+ENV DEBIAN_FRONTEND=noninteractive
+ENV NODE_OPTIONS=""
+ENV PIP_ROOT_USER_ACTION=ignore
 
-# Define installation arguments
-ARG INSTALL_BNB=false
-ARG INSTALL_VLLM=false
-ARG INSTALL_DEEPSPEED=false
-ARG INSTALL_FLASHATTN=false
-ARG INSTALL_LIGER_KERNEL=false
-ARG INSTALL_HQQ=false
-ARG PIP_INDEX=https://pypi.org/simple
+# Use Bash instead of default /bin/sh
+SHELL ["/bin/bash", "-c"]
 
 # Set the working directory
 WORKDIR /app
 
+
+# Change pip source
+RUN pip config set global.index-url "${PIP_INDEX}" && \
+    pip config set global.extra-index-url "${PIP_INDEX}" && \
+    pip install --no-cache-dir --upgrade pip packaging wheel setuptools
+
+# Reinstall pytorch rocm
+RUN pip uninstall -y torch torchvision torchaudio && \
+    pip install --no-cache-dir --pre torch torchvision torchaudio --index-url "${PYTORCH_INDEX}"
+
 # Install the requirements
 COPY requirements.txt /app
-RUN pip config set global.index-url "$PIP_INDEX" && \
-    pip config set global.extra-index-url "$PIP_INDEX" && \
-    python -m pip install --upgrade pip && \
-    python -m pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application into the image
 COPY . /app
 
-# Install the LLaMA Factory
-RUN EXTRA_PACKAGES="metrics"; \
-    if [ "$INSTALL_BNB" == "true" ]; then \
-        EXTRA_PACKAGES="${EXTRA_PACKAGES},bitsandbytes"; \
-    fi; \
-    if [ "$INSTALL_VLLM" == "true" ]; then \
-        EXTRA_PACKAGES="${EXTRA_PACKAGES},vllm"; \
-    fi; \
-    if [ "$INSTALL_DEEPSPEED" == "true" ]; then \
-        EXTRA_PACKAGES="${EXTRA_PACKAGES},deepspeed"; \
-    fi; \
-    if [ "$INSTALL_LIGER_KERNEL" == "true" ]; then \
-        EXTRA_PACKAGES="${EXTRA_PACKAGES},liger-kernel"; \
-    fi; \
-    if [ "$INSTALL_HQQ" == "true" ]; then \
-        EXTRA_PACKAGES="${EXTRA_PACKAGES},hqq"; \
-    fi; \
-    pip install -e ".[$EXTRA_PACKAGES]"
+# Install LLaMA Factory
+RUN pip install --no-cache-dir -e ".[${EXTRAS}]" --no-build-isolation
 
 # Rebuild flash attention
-RUN pip uninstall -y transformer-engine flash-attn && \
-    if [ "$INSTALL_FLASHATTN" == "true" ]; then \
-        pip uninstall -y ninja && pip install ninja && \
+RUN if [ "${INSTALL_FLASHATTN}" == "true" ]; then \
+        pip uninstall -y ninja && \
+        pip install --no-cache-dir ninja && \
         pip install --no-cache-dir flash-attn --no-build-isolation; \
     fi
 
-# Set up volumes
-VOLUME [ "/root/.cache/huggingface", "/root/.cache/modelscope", "/app/data", "/app/output" ]
-
-# Expose port 7860 for the LLaMA Board
-ENV GRADIO_SERVER_PORT 7860
-EXPOSE 7860
 
 # Expose port 8000 for the API service
 ENV API_PORT 8000
 EXPOSE 8000
+CMD ["sh start-sft-server.sh"]

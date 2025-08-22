@@ -1,6 +1,5 @@
+import os
 import argparse
-
-from llmtuner.wrapers.trainval import trval_main
 
 
 def main():
@@ -8,7 +7,7 @@ def main():
     sub_parsers = parser.add_subparsers(help='sub commands')
 
     trval_parser = sub_parsers.add_parser('train', help='train on train dataset')
-    trval_parser.add_argument('--subcommand', default='train')
+    trval_parser.add_argument('--subcommand', default='train', help=argparse.SUPPRESS)
     trval_parser.add_argument('--model_name_or_path',
                               help='base model name',
                               required=True,
@@ -25,14 +24,15 @@ def main():
         type=str)
     trval_parser.add_argument('--output_dir', help='save model path', required=True, type=str)
     trval_parser.add_argument('--finetuning_type',
-                              help='finetuning type: full, freeze, lora',
+                              choices=["lora", "full", "freeze"],
+                              help='微调方式: lora(低秩适应), full(全参数微调), freeze(冻结部分参数)',
                               required=True,
                               type=str)
-    trval_parser.add_argument('--gpus', help='gpus to use: 0,1,2,3', required=True, type=str)
+    trval_parser.add_argument('--gpus', help='gpus to use: 0,1,2,3', default='', type=str)
     trval_parser.add_argument('--val_ratio', help='val dataset ratio', default=0.1, type=float)
     trval_parser.add_argument('--per_device_train_batch_size',
                               help='batch size',
-                              default=1,
+                              default=2,
                               type=int)
     trval_parser.add_argument('--learning_rate', help='learning rate', default=0.00005, type=float)
     trval_parser.add_argument('--num_train_epochs', help='train epochs', default=3, type=int)
@@ -42,9 +42,22 @@ def main():
                               action='store_true')
 
     args = parser.parse_args()
+
+    if not hasattr(args, 'subcommand'):
+        parser.print_help()
+        exit(1)
+
+    if hasattr(args, 'gpus') and args.gpus != '':
+        os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
+
     if args.subcommand == 'train':
+        from llmtuner.wrapers.trainval import trval_main
         trval_main(args)
 
 
 if __name__ == '__main__':
+    from multiprocessing import freeze_support
+
+    freeze_support()
+
     main()

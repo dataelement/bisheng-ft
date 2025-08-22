@@ -141,8 +141,8 @@ def get_all_model():
 @app.get('/v2.1/sft/gpu')
 def get_gpu_info():
     logger.info('get gpu info')
-    # p = subprocess.run('nvidia-smi -q -x', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    p = subprocess.run('npu-smi -q -x', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.run('nvidia-smi -q -x', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # p = subprocess.run('npu-smi -q -x', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if p.returncode != 0:
         return {"status_code": 400, "status_message": f'fail to get gpu info {p.stderr}'}
     return {"status_code": 200, "status_message": "success", "data": p.stdout.decode('utf-8')}
@@ -175,7 +175,7 @@ def common_sft_req(payload: dict):
 
 
 if __name__ == '__main__':
-    port = 8000
+    port = 6553
     if sys.argv.__len__() >= 2:
         port = int(sys.argv[1])
     uvicorn.run(app, host="0.0.0.0", port=port)

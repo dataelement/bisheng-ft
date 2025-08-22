@@ -1,36 +1,45 @@
-FROM nvcr.io/nvidia/pytorch:22.08-py3
+FROM hiyouga/pytorch:th2.6.0-cu124-flashattn2.7.4-cxx11abi0-devel
 
-ARG PIP_REPO=https://pypi.tuna.tsinghua.edu.cn/simple
-ARG EXTR_PIP_REPO="http://public:26rS9HRxDqaVy5T@192.168.106.8:6081/repository/pypi-hosted/simple --trusted-host 192.168.106.8"
-ARG BISHENG_FT_VER=0.0.1
+# Installation arguments
+ARG PIP_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
+ARG EXTRAS=metrics
+ARG INSTALL_FLASHATTN=false
 
-# 安装系统库依赖
+# Define environments
+ENV MAX_JOBS=16
+ENV FLASH_ATTENTION_FORCE_BUILD=TRUE
+ENV VLLM_WORKER_MULTIPROC_METHOD=spawn
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt update && apt install -y nasm zlib1g-dev libssl-dev libre2-dev libb64-dev locales libsm6 libxext6 libxrender-dev libgl1 tmux git
+ENV NODE_OPTIONS=""
+ENV PIP_ROOT_USER_ACTION=ignore
 
-# Configure language
-RUN locale-gen en_US.UTF-8
-ENV LC_ALL=en_US.UTF-8 \
-    LANG=en_US.UTF-8 \
-    LANGUAGE=en_US.UTF-8
+# Use Bash instead of default /bin/sh
+SHELL ["/bin/bash", "-c"]
 
-# Configure timezone
-ENV TZ=Asia/Shanghai
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+# Set the working directory
+WORKDIR /app
 
-RUN mkdir -p /opt/bisheng-ft/
-WORKDIR /opt/bisheng-ft
+# Change pip source
+RUN pip config set global.index-url "${PIP_INDEX}" && \
+    pip config set global.extra-index-url "${PIP_INDEX}" && \
+    pip install --no-cache-dir --upgrade pip packaging wheel setuptools
 
-# 安装bisheng-ft依赖
-RUN ln -s /usr/local/bin/pip3 /usr/bin/pip3.8
-RUN pip install --upgrade pip
-COPY ./requirements.txt /opt/bisheng-ft
-RUN pip install -r requirements.txt -i $PIP_REPO
+# Install the requirements
+COPY requirements.txt /app
+RUN pip install --no-cache-dir -r requirements.txt
 
-# 安装bisheng-ft
-RUN pip install bisheng-ft==${BISHENG_FT_VER} \
-    --extra-index $EXTR_PIP_REPO \
-    -i $PIP_REPO
+# Copy the rest of the application into the image
+COPY . /app
+
+# Install LLaMA Factory
+RUN pip install --no-cache-dir -e ".[${EXTRAS}]" --no-build-isolation
+
+# Rebuild flash attention
+RUN if [ "${INSTALL_FLASHATTN}" == "true" ]; then \
+        pip uninstall -y ninja && \
+        pip install --no-cache-dir ninja && \
+        pip install --no-cache-dir flash-attn --no-build-isolation; \
+    fi
 
 # 下载预置数据集
 RUN mkdir -p /opt/bisheng-ft/sft_datasets

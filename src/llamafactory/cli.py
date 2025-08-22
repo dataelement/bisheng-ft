@@ -18,46 +18,45 @@ import sys
 from copy import deepcopy
 from functools import partial
 
+from llamafactory import launcher
+from llamafactory.api.app import run_api
+from llamafactory.chat.chat_model import run_chat
+from llamafactory.eval.evaluator import run_eval
+from llamafactory.extras import logging
+from llamafactory.extras.env import VERSION, print_env
+from llamafactory.extras.misc import find_available_port, get_device_count, is_env_enabled, use_ray
+from llamafactory.train.tuner import export_model, run_exp
+from llamafactory.webui.interface import run_web_demo, run_web_ui
 
 USAGE = (
-    "-" * 70
-    + "\n"
-    + "| Usage:                                                             |\n"
-    + "|   llamafactory-cli api -h: launch an OpenAI-style API server       |\n"
-    + "|   llamafactory-cli chat -h: launch a chat interface in CLI         |\n"
-    + "|   llamafactory-cli eval -h: evaluate models                        |\n"
-    + "|   llamafactory-cli export -h: merge LoRA adapters and export model |\n"
-    + "|   llamafactory-cli train -h: train models                          |\n"
-    + "|   llamafactory-cli webchat -h: launch a chat interface in Web UI   |\n"
-    + "|   llamafactory-cli webui: launch LlamaBoard                        |\n"
-    + "|   llamafactory-cli version: show version info                      |\n"
-    + "-" * 70
+        "-" * 70
+        + "\n"
+        + "| Usage:                                                             |\n"
+        + "|   llamafactory-cli api -h: launch an OpenAI-style API server       |\n"
+        + "|   llamafactory-cli chat -h: launch a chat interface in CLI         |\n"
+        + "|   llamafactory-cli eval -h: evaluate models                        |\n"
+        + "|   llamafactory-cli export -h: merge LoRA adapters and export model |\n"
+        + "|   llamafactory-cli train -h: train models                          |\n"
+        + "|   llamafactory-cli webchat -h: launch a chat interface in Web UI   |\n"
+        + "|   llamafactory-cli webui: launch LlamaBoard                        |\n"
+        + "|   llamafactory-cli version: show version info                      |\n"
+        + "-" * 70
 )
 
 
 def main():
-    from . import launcher
-    from .api.app import run_api
-    from .chat.chat_model import run_chat
-    from .eval.evaluator import run_eval
-    from .extras import logging
-    from .extras.env import VERSION, print_env
-    from .extras.misc import find_available_port, get_device_count, is_env_enabled, use_ray
-    from .train.tuner import export_model, run_exp
-    from .webui.interface import run_web_demo, run_web_ui
-
     logger = logging.get_logger(__name__)
 
     WELCOME = (
-        "-" * 58
-        + "\n"
-        + f"| Welcome to LLaMA Factory, version {VERSION}"
-        + " " * (21 - len(VERSION))
-        + "|\n|"
-        + " " * 56
-        + "|\n"
-        + "| Project page: https://github.com/hiyouga/LLaMA-Factory |\n"
-        + "-" * 58
+            "-" * 58
+            + "\n"
+            + f"| Welcome to LLaMA Factory, version {VERSION}"
+            + " " * (21 - len(VERSION))
+            + "|\n|"
+            + " " * 56
+            + "|\n"
+            + "| Project page: https://github.com/hiyouga/LLaMA-Factory |\n"
+            + "-" * 58
     )
 
     COMMAND_MAP = {
@@ -145,8 +144,11 @@ def main():
                 env=env,
                 check=True,
             )
-
-        sys.exit(process.returncode)
+        if process.returncode != 0:
+            print(f"Distributed training failed with return code {process.returncode}.")
+            sys.exit(process.returncode)
+        else:
+            print("Distributed training launched successfully.")
     elif command in COMMAND_MAP:
         COMMAND_MAP[command]()
     else:
