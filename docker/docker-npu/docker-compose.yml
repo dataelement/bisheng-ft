@@ -12,16 +12,21 @@ services:
       - /usr/local/bin/npu-smi:/usr/local/bin/npu-smi
       - /usr/local/Ascend/driver:/usr/local/Ascend/driver
       - /etc/ascend_install.info:/etc/ascend_install.info
-      - ../../data:/app/data
-      - ../../output:/app/output
-      - ../config/config_ft.yaml:/opt/bisheng-ft/sft_server/config.yaml  # 服务启动所需的配置文件地址
+      - ../../data/finetune_output:/opt/bisheng-ft/finetune_output # 训练期间的输出的模型和训练日志目录
       - ../../data/llm:/opt/bisheng-ft/models/model_repository # 配置和RT服务同样的大模型目录
+      - ../config/config_ft.yaml:/opt/bisheng-ft/sft_server/config.yaml  # 服务启动所需的配置文件地址
     ports:
       - "8000:8000"
     ipc: host
     tty: true
     stdin_open: true
     command: bash ./start-sft-server.sh
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      start_period: 30s
+      interval: 90s
+      timeout: 30s
+      retries: 3
     devices:
       - /dev/davinci0
       - /dev/davinci_manager
