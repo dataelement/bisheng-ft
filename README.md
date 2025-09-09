@@ -5,3 +5,10 @@
 
 bisheng-ft主要借鉴了以下仓库，并做了二次开发：
 - LLaMA-Factory
+
+## Docker 部署
+
+* cd 到docker目录下
+* 根据需要修改config/config_ft.yaml中的参数
+* cd 到目标硬件版本docker目录下
+* 执行 docker-compose up -d
