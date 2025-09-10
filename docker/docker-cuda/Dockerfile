@@ -17,6 +17,9 @@ ENV PIP_ROOT_USER_ACTION=ignore
 # Use Bash instead of default /bin/sh
 SHELL ["/bin/bash", "-c"]
 
+# install curl
+RUN apt-get update && apt-get install -y curl
+
 # Set the working directory
 WORKDIR /app
 

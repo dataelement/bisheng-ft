@@ -16,6 +16,8 @@ ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu
 # Use Bash instead of default /bin/sh
 SHELL ["/bin/bash", "-c"]
 
+RUN apt-get update && apt-get install -y curl
+
 # Set the working directory
 WORKDIR /app
 
