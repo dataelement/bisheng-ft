@@ -7,6 +7,7 @@ services:
         INSTALL_DEEPSPEED: true
         PIP_INDEX: https://pypi.tuna.tsinghua.edu.cn/simple
     container_name: bisheng-ft
+    shm_size: "4g"
     volumes:
       - /usr/local/dcmi:/usr/local/dcmi
       - /usr/local/bin/npu-smi:/usr/local/bin/npu-smi

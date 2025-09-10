@@ -12,6 +12,7 @@ services:
         INSTALL_HQQ: false
         PIP_INDEX: https://pypi.org/simple
     container_name: llamafactory
+    shm_size: "4g"
     volumes:
       - ../../data/finetune_output:/opt/bisheng-ft/finetune_output # 训练期间的输出的模型和训练日志目录
       - ../../data/llm:/opt/bisheng-ft/models/model_repository # 配置和RT服务同样的大模型目录
