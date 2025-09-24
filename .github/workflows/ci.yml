@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    # Sequence of patterns matched against refs/tags
+    tags:
+      - "v*"
+
+env:
+  DOCKERHUB_REPO: dataelement/
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build_bisheng_ft_arm:
+    name: Build bisheng-ft ARM Docker Image
+    runs-on: ubuntu-22.04-arm
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: arm64
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Get the version tag
+        id: get_version
+        run: |
+          echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+          echo "Version: ${{ env.VERSION }}"
+
+      - name: cd to docker directory
+        run: cd docker/docker-npu/
+
+      - name: Build Docker image
+        run: |
+          docker build --platform linux/arm64 --tag ${{ env.DOCKERHUB_REPO }}bisheng-ft-npu:${{ env.VERSION }}-arm64 --file ./Dockerfile ../..
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.DOCKERHUB_REPO }}bisheng-ft-npu:${{ env.VERSION }}-arm64
+          docker tag ${{ env.DOCKERHUB_REPO }}bisheng-ft-npu:${{ env.VERSION }}-arm64 ${{ env.DOCKERHUB_REPO }}bisheng-ft-npu:latest-arm64
+          docker images | grep bisheng-ft-npu
+          docker push ${{ env.DOCKERHUB_REPO }}bisheng-ft-npu:latest-arm64
