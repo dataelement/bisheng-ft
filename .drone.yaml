@@ -40,6 +40,7 @@ steps: # 定义流水线执行步骤，这些步骤将顺序执行
       no_proxy: 192.168.106.8,192.168.106.8
       version: ${DRONE_TAG}
       docker_repo: dataelement/bisheng-ft
+      docker_repo_npu: dataelement/bisheng-ft-npu
       docker_user:
         from_secret: DOCKER_USER
       docker_password:
@@ -67,6 +68,16 @@ steps: # 定义流水线执行步骤，这些步骤将顺序执行
       - docker push $docker_repo:latest
       - docker push $cr_repo_host/$docker_repo:$version
       - docker push $cr_repo_host/$docker_repo:latest
+      - cd docker/docker-npu/
+      - docker build -t $docker_repo_npu:$version -f ./Dockerfile ../..
+      - docker push $docker_repo_npu:$version
+      - docker tag $docker_repo_npu:$version $cr_repo_host/$docker_repo_npu:$version
+      - docker tag $docker_repo_npu:$version $docker_repo_npu:latest
+      - docker tag $docker_repo_npu:$version $cr_repo_host/$docker_repo_npu:latest
+      - docker push $docker_repo_npu:latest
+      - docker push $cr_repo_host/$docker_repo_npu:$version
+      - docker push $cr_repo_host/$docker_repo_npu:latest
+      - echo "Docker images built and pushed successfully."
 volumes:
 - name: bisheng-cache
   host:
