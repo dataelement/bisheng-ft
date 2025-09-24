@@ -35,18 +35,15 @@ jobs:
       - name: Get the version tag
         id: get_version
         run: |
-          echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
-          echo "Version: ${{ steps.get_version.outputs.VERSION }}"
-
-      - name: Set VERSION environment variable
-        run: |
-          echo "VERSION=${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_ENV
-
-      - name: cd to docker directory
-        run: cd docker/docker-npu/
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "VERSION=${GITHUB_REF#refs/tags/}"
 
       - name: Build Docker image
         run: |
+          pwd
+          ls -alh
+          cd docker/docker-npu/
+          ls -alh
           docker build --platform linux/arm64 --tag ${{ env.DOCKERHUB_REPO }}bisheng-ft-npu:${{ env.VERSION }}-arm64 --file ./Dockerfile ../..
 
       - name: Push Docker image
