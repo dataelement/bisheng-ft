@@ -48,7 +48,16 @@ def main():
         exit(1)
 
     if hasattr(args, 'gpus') and args.gpus != '':
-        os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
+
+        system_env = os.environ.get('SYSTEM_ENV', 'CUDA').upper()
+        if system_env not in ['CUDA', 'ROCM', 'NPU']:
+            raise ValueError(f'unknown system env {system_env}')
+        if system_env == 'NPU':
+            os.environ['ASCEND_RT_VISIBLE_DEVICES'] = args.gpus
+        elif system_env == 'CUDA':
+            os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
+        elif system_env == 'ROCM':
+            os.environ["HIP_VISIBLE_DEVICES"] = args.gpus
 
     if args.subcommand == 'train':
         from llmtuner.wrapers.trainval import trval_main
