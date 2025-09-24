@@ -35,8 +35,13 @@ jobs:
       - name: Get the version tag
         id: get_version
         run: |
-          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          echo "VERSION=${GITHUB_REF#refs/tags/}"
+          echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+          echo "Version is ${{ steps.get_version.outputs.VERSION }}"
+
+      - name: Set ENV variables
+        run: |
+          echo "VERSION=${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_ENV
+          echo "DOCKERHUB_REPO=${{ env.DOCKERHUB_REPO }}" >> $GITHUB_ENV
 
       - name: Build Docker image
         run: |
