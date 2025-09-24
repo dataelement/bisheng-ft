@@ -60,14 +60,14 @@ steps: # 定义流水线执行步骤，这些步骤将顺序执行
       - docker login -u $cr_user -p $cr_password $cr_repo_host
       - docker login -u $docker_user -p $docker_password
       - cd docker/docker-cuda/
-      - docker build -t $docker_repo:$version -f ./Dockerfile ../..
-      - docker push $docker_repo:$version
-      - docker tag $docker_repo:$version $cr_repo_host/$docker_repo:$version
-      - docker tag $docker_repo:$version $docker_repo:latest
-      - docker tag $docker_repo:$version $cr_repo_host/$docker_repo:latest
-      - docker push $docker_repo:latest
-      - docker push $cr_repo_host/$docker_repo:$version
-      - docker push $cr_repo_host/$docker_repo:latest
+#      - docker build -t $docker_repo:$version -f ./Dockerfile ../..
+#      - docker push $docker_repo:$version
+#      - docker tag $docker_repo:$version $cr_repo_host/$docker_repo:$version
+#      - docker tag $docker_repo:$version $docker_repo:latest
+#      - docker tag $docker_repo:$version $cr_repo_host/$docker_repo:latest
+#      - docker push $docker_repo:latest
+#      - docker push $cr_repo_host/$docker_repo:$version
+#      - docker push $cr_repo_host/$docker_repo:latest
       - cd ../docker-npu/
       - docker build -t $docker_repo_npu:$version -f ./Dockerfile ../..
       - docker push $docker_repo_npu:$version

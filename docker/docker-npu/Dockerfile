@@ -1,18 +1,21 @@
-# Use the Ubuntu 22.04 image with CANN 8.0.rc1
-# More versions can be found at https://hub.docker.com/r/ascendai/cann/tags
-# FROM ascendai/cann:8.0.rc1-910-ubuntu22.04-py3.8
-FROM ascendai/cann:8.1.rc1-910b-ubuntu22.04-py3.11
-# FROM ascendai/cann:8.0.rc1-910-openeuler22.03-py3.8
-# FROM ascendai/cann:8.0.rc1-910b-openeuler22.03-py3.8
+ARG BASE_IMAGE=ascendai/cann:8.1.rc1-910b-ubuntu22.04-py3.11
+FROM ${BASE_IMAGE}
+
+# Installation arguments
+ARG PIP_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
+ARG EXTRAS=torch-npu,metrics
+ARG HTTP_PROXY=""
+ARG PYTORCH_INDEX=https://download.pytorch.org/whl/cpu
 
 # Define environments
+ENV MAX_JOBS=16
+ENV FLASH_ATTENTION_FORCE_BUILD=TRUE
+ENV VLLM_WORKER_MULTIPROC_METHOD=spawn
 ENV DEBIAN_FRONTEND=noninteractive
-ENV SYSTEM_ENV=NPU
-
-# Define installation arguments
-ARG INSTALL_DEEPSPEED=false
-ARG PIP_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
-ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu
+ENV NODE_OPTIONS=""
+ENV PIP_ROOT_USER_ACTION=ignore
+ENV http_proxy="${HTTP_PROXY}"
+ENV https_proxy="${HTTP_PROXY}"
 
 # Use Bash instead of default /bin/sh
 SHELL ["/bin/bash", "-c"]
@@ -49,6 +52,9 @@ RUN mkdir -p /opt/bisheng-ft/sft_datasets
 # 拷贝sft-server代码
 COPY src/sft_server /opt/bisheng-ft/sft_server
 RUN mkdir -p /opt/bisheng-ft/sft_log /opt/bisheng-ft/finetune_output
+
+
+ENV SYSTEM_ENV=NPU
 
 # Expose port 7860 for the LLaMA Board
 ENV GRADIO_SERVER_PORT 7860
