@@ -36,7 +36,11 @@ jobs:
         id: get_version
         run: |
           echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
-          echo "Version: ${{ env.VERSION }}"
+          echo "Version: ${{ steps.get_version.outputs.VERSION }}"
+
+      - name: Set VERSION environment variable
+        run: |
+          echo "VERSION=${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_ENV
 
       - name: cd to docker directory
         run: cd docker/docker-npu/
