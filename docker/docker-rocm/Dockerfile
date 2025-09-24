@@ -14,6 +14,7 @@ ENV VLLM_WORKER_MULTIPROC_METHOD=spawn
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NODE_OPTIONS=""
 ENV PIP_ROOT_USER_ACTION=ignore
+ENV SYSTEM_ENV=ROCM
 
 # Use Bash instead of default /bin/sh
 SHELL ["/bin/bash", "-c"]

@@ -18,6 +18,8 @@ services:
       - ../config/config_ft.yaml:/opt/bisheng-ft/sft_server/config.yaml  # 服务启动所需的配置文件地址
     ports:
       - "8000:8000"
+    environment:
+      - SYSTEM_ENV=NPU
     ipc: host
     tty: true
     stdin_open: true

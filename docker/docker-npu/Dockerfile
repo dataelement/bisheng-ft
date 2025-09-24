@@ -7,6 +7,7 @@ FROM ascendai/cann:8.1.rc1-910b-ubuntu22.04-py3.11
 
 # Define environments
 ENV DEBIAN_FRONTEND=noninteractive
+ENV SYSTEM_ENV=NPU
 
 # Define installation arguments
 ARG INSTALL_DEEPSPEED=false

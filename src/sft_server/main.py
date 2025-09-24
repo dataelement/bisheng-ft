@@ -141,8 +141,20 @@ def get_all_model():
 @app.get('/v2.1/sft/gpu')
 def get_gpu_info():
     logger.info('get gpu info')
-    p = subprocess.run('nvidia-smi -q -x', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # p = subprocess.run('npu-smi -q -x', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    # 系统环境
+    sys_env = os.environ.get('SYSTEM_ENV', 'CUDA')
+
+    if sys_env == 'CUDA':
+        command = 'nvidia-smi -q -x'
+    elif sys_env == 'NPU':
+        command = 'npu-smi -q -x'
+    elif sys_env == 'ROCM':
+        command = 'rocm-smi --showhw --json'
+    else:
+        return {"status_code": 400, "status_message": f'unknown system env {sys_env}'}
+
+    p = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if p.returncode != 0:
         return {"status_code": 400, "status_message": f'fail to get gpu info {p.stderr}'}
     return {"status_code": 200, "status_message": "success", "data": p.stdout.decode('utf-8')}
