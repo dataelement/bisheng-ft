@@ -68,7 +68,7 @@ steps: # 定义流水线执行步骤，这些步骤将顺序执行
       - docker push $docker_repo:latest
       - docker push $cr_repo_host/$docker_repo:$version
       - docker push $cr_repo_host/$docker_repo:latest
-      - cd docker/docker-npu/
+      - cd ../docker-npu/
       - docker build -t $docker_repo_npu:$version -f ./Dockerfile ../..
       - docker push $docker_repo_npu:$version
       - docker tag $docker_repo_npu:$version $cr_repo_host/$docker_repo_npu:$version
