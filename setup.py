@@ -46,26 +46,37 @@ def get_console_scripts() -> List[str]:
 
 
 extra_require = {
-    "torch": ["torch>=1.13.1"],
-    "torch-npu": ["torch==2.1.0", "torch-npu==2.1.0.post3", "decorator"],
+    "torch": ["torch>=2.0.0", "torchvision>=0.15.0"],
+    "torch-npu": ["torch-npu==2.5.1", "torchvision==0.20.1", "decorator"],
     "metrics": ["nltk", "jieba", "rouge-chinese"],
-    "deepspeed": ["deepspeed>=0.10.0,<=0.14.4"],
-    "liger-kernel": ["liger-kernel"],
+    "deepspeed": ["deepspeed>=0.10.0,<=0.16.9"],
+    "liger-kernel": ["liger-kernel>=0.5.5"],
     "bitsandbytes": ["bitsandbytes>=0.39.0"],
     "hqq": ["hqq"],
     "eetq": ["eetq"],
-    "gptq": ["optimum>=1.17.0", "auto-gptq>=0.5.0"],
-    "awq": ["autoawq"],
+    "gptq": ["optimum>=1.24.0", "gptqmodel>=2.0.0"],
     "aqlm": ["aqlm[gpu]>=1.1.0"],
-    "vllm": ["vllm>=0.4.3,<=0.6.3"],
+    "vllm": ["vllm>=0.4.3,<=0.10.0"],
+    "sglang": ["sglang[srt]>=0.4.5", "transformers==4.51.1"],
     "galore": ["galore-torch"],
+    "apollo": ["apollo-torch"],
     "badam": ["badam>=1.2.1"],
     "adam-mini": ["adam-mini"],
-    "qwen": ["transformers_stream_generator"],
-    "modelscope": ["modelscope"],
+    "minicpm_v": [
+        "soundfile",
+        "torchvision",
+        "torchaudio",
+        "vector_quantize_pytorch",
+        "vocos",
+        "msgpack",
+        "referencing",
+        "jsonschema_specifications",
+    ],
     "openmind": ["openmind"],
-    "dev": ["ruff", "pytest"],
+    "swanlab": ["swanlab"],
+    "dev": ["pre-commit", "ruff", "pytest", "build"],
 }
+
 
 
 def main():
