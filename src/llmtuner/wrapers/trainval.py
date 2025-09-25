@@ -82,7 +82,7 @@ class BishengFTrainArgs(BaseModel):
     plot_loss: bool = Field(default=True, description="是否生成损失曲线")
 
     # 硬件与分布式设置
-    bf16: bool = Field(default=True, description="是否启用BF16混合精度训练")
+    fp16: bool = Field(default=True, description="是否启用fp16")
     flash_attn: Literal["auto", "disabled", "sdpa", "fa2"] = Field(
         default="auto",
         description="是否启用Flash Attention加速"
@@ -224,7 +224,7 @@ def trval_main(args):
         '--max_new_tokens', '512',
         '--top_p', '0.7',
         '--temperature', '0.95',
-        '--bf16', str(bisheng_ft_args.bf16).lower()
+        '--fp16'
     ])
 
     logger.info('Starting prediction with args: ' + ' '.join(sys.argv))
