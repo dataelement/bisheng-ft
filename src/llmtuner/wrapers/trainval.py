@@ -167,6 +167,7 @@ def trval_main(args):
             if isinstance(value, bool):
                 if value:
                     sys.argv.append(f'--{key}')
+                    sys.argv.append('True')
             else:
                 sys.argv.append(f'--{key}')
                 sys.argv.append(str(value))

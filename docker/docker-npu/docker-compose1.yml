@@ -1,12 +1,7 @@
 services:
-  bisheng-ft:
-    build:
-      dockerfile: ./docker/docker-npu/Dockerfile
-      context: ../..
-      args:
-        INSTALL_DEEPSPEED: true
-        PIP_INDEX: https://pypi.tuna.tsinghua.edu.cn/simple
-    container_name: bisheng-ft
+  ft_server:
+    container_name: bisheng-ft-server
+    image: cr.dataelem.com/dataelement/bisheng-ft-npu:v0.5.0-arm64
 #    shm_size: "4g"
     volumes:
       - /etc/hccn.conf:/etc/hccn.conf
@@ -39,6 +34,13 @@ services:
       retries: 3
     devices:
       - /dev/davinci0
+      - /dev/davinci1
+      - /dev/davinci2
+      - /dev/davinci3
+      - /dev/davinci4
+      - /dev/davinci5
+      - /dev/davinci6
+      - /dev/davinci7
       - /dev/davinci_manager
       - /dev/devmm_svm
       - /dev/hisi_hdc
