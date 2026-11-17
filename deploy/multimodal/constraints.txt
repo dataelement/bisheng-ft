@@ -1,0 +1,12 @@
+transformers==4.56.2
+datasets==4.0.0
+accelerate==1.11.0
+peft==0.18.0
+trl==0.24.0
+torchdata==0.11.0
+
+torch==2.6.0
+torchvision==0.21.0
+torchaudio==2.6.0
+av==16.0.0
+qwen-vl-utils==0.0.14

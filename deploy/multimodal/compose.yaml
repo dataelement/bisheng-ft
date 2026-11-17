@@ -1,0 +1,44 @@
+services:
+  ft:
+    image: bisheng-ft:multimodal-20261102
+    network_mode: bridge
+    build:
+      context: ../..
+      dockerfile: deploy/multimodal/Dockerfile
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    ports:
+      - "${FT_BIND_IP:-127.0.0.1}:${FT_PORT:-8000}:8000"
+    environment:
+      BISHENG_FT_CAPABILITIES: /config/model_capabilities.json
+      BISHENG_FT_MODEL_ROOT: /models
+      BISHENG_FT_OUTPUT_ROOT: /data/jobs
+      BISHENG_FT_MODELS: ${FT_MODELS:-Qwen3-0.6B,Qwen2.5-VL-3B-Instruct}
+      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
+    volumes:
+      - "${CAPABILITIES_FILE:-../../src/sft_server/model_capabilities.json}:/config/model_capabilities.json:ro"
+      - "${MODEL_DIR:-./data/models}:/models:ro"
+      - "${OUTPUT_DIR:-./data/jobs}:/data/jobs"
+    shm_size: 2gb
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_ID:-0}"]
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  download:
+    image: bisheng-ft:multimodal-20261102
+    network_mode: bridge
+    profiles: [tools]
+    entrypoint: ["python", "/opt/bisheng-ft/download_models.py"]
+    environment:
+      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
+    volumes:
+      - "${MODEL_DIR:-./data/models}:/models"

@@ -3,12 +3,14 @@ import os
 import shutil
 import signal
 from logging import getLogger
+from pathlib import Path
 from typing import Dict, List
 
 import requests
 import settings
 from cmd_manage import CmdManage
 from redis_manager import redis_client
+from v2_runtime import run_inference, run_v2_job
 
 logger = getLogger(__name__)
 
@@ -77,6 +79,19 @@ class SFTManage(object):
             if not lock_ret:
                 # 任务被取消
                 logger.info(f'job is already canceled, job_id: {self.job_id}')
+                return
+            if commands.get('contract_version') == 2:
+                code, _state = run_v2_job(
+                    self.job_id,
+                    commands,
+                    Path(self.job_exec_dir),
+                    Path(self.ModelRootPath),
+                )
+                with open(self.stdout_path, 'r') as f:
+                    exec_stdout = f.read()
+                with open(self.stderr_path, 'r') as f:
+                    exec_stderr = f.read()
+                self.write_result(code, exec_stdout, exec_stderr)
                 return
             # 解析参数适配本地指令执行
             self.parse_commands(commands)
@@ -178,12 +193,19 @@ class SFTManage(object):
         pid, exit_code, stdout, stderr = self.get_result()
         if exit_code is not None:
             if int(exit_code) == 0:
-                return self.JobStatus.Finished, stdout
+                state_path = os.path.join(self.result_dir, 'state.json')
+                if os.path.isfile(state_path):
+                    with open(state_path, encoding='utf-8') as stream:
+                        return self.JobStatus.Finished, json.load(stream)
+                return self.JobStatus.Finished, {'reason': stdout}
             return self.JobStatus.Failed, f'{stderr}\n{stdout}'
         if pid is not None:
             return self.JobStatus.Running, ''
         # 还未开始执行，队列中或解析参数中
         return self.JobStatus.Running, ''
+
+    def inference(self, payload: Dict) -> Dict:
+        return run_inference(Path(self.job_exec_dir), payload)
 
     def get_job_log(self) -> str:
         log_path = os.path.join(self.model_output_dir, 'trainer_log.jsonl')

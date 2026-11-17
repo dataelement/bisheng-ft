@@ -11,3 +11,8 @@ output
 .dockerignore
 .gitattributes
 .gitignore
+**/__pycache__
+**/*.pyc
+.pytest_cache
+deploy/multimodal/data
+tests/evidence

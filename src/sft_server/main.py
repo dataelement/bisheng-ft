@@ -3,12 +3,16 @@ import os
 import subprocess
 import sys
 from logging import getLogger
+from pathlib import Path
 
 import uvicorn
 from fastapi.responses import PlainTextResponse, ORJSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi import FastAPI, HTTPException, Request, status, Body
+from pydantic import BaseModel, Field
 
+from capabilities import public_capabilities
+from preflight import run_preflight
 from sft_manage import SFTManage
 from celery_tasks import create_job_task
 import settings
@@ -37,6 +41,26 @@ app = FastAPI(
     default_response_class=ORJSONResponse,
     exception_handlers=_EXCEPTION_HANDLERS,
 )
+
+
+class PreflightRequest(BaseModel):
+    capability_id: str
+    data_type: str
+    method: str
+    parameters: dict = Field(default_factory=dict)
+
+
+def preflight_request(payload: dict):
+    request = PreflightRequest.model_validate(payload)
+    model_root = os.getenv("BISHENG_FT_MODEL_ROOT", settings.MODEL_ROOT_DIR)
+    result = run_preflight(
+        capability_id=request.capability_id,
+        model_root=Path(model_root),
+        data_type=request.data_type,
+        method=request.method,
+        parameters=request.parameters,
+    )
+    return {"status_code": 200, "status_message": "success", "data": result}
 
 
 @app.get("/")
@@ -103,15 +127,25 @@ def cancel_publish_model(job_id: str = Body(), model_name: str = Body()):
 def get_job_status(job_id: str = Body()):
     logger.info(f'get job status job: {job_id}')
     sft_obj = SFTManage(job_id)
-    status, reason = sft_obj.get_job_status()
+    status, detail = sft_obj.get_job_status()
+    reason = detail if isinstance(detail, str) else detail.get('reason', '')
     return {
         "status_code": 200,
         "status_message": "success",
         "data": {
             "status": status,
-            "reason": reason
+            "reason": reason,
+            "stage": detail.get('stage') if isinstance(detail, dict) else None,
+            "artifacts": detail.get('artifacts') if isinstance(detail, dict) else None,
+            "dataset_report": detail.get('dataset_report') if isinstance(detail, dict) else None,
         }
     }
+
+
+@app.post('/v2.1/sft/job/{job_id}/infer')
+def validate_job_inference(job_id: str, payload: dict):
+    result = SFTManage(job_id).inference(payload)
+    return {"status_code": 200, "status_message": "success", "data": result}
 
 
 @app.post("/v2.1/sft/job/log")
@@ -136,6 +170,16 @@ def get_job_report(job_id: str = Body()):
 def get_all_model():
     model_list = SFTManage.get_all_model()
     return {"status_code": 200, "status_message": "success", "data": model_list}
+
+
+@app.get('/v2.1/sft/capabilities')
+def get_capabilities():
+    return {"status_code": 200, "status_message": "success", "data": public_capabilities()}
+
+
+@app.post('/v2.1/sft/preflight')
+def preflight(payload: PreflightRequest):
+    return preflight_request(payload.model_dump())
 
 
 @app.get('/v2.1/sft/gpu')
@@ -170,6 +214,10 @@ def common_sft_req(payload: dict):
         return get_job_log(payload['job_id'])
     elif payload['uri'] == '/v2.1/sft/job/metrics':
         return get_job_report(payload['job_id'])
+    elif payload['uri'] == '/v2.1/sft/capabilities':
+        return get_capabilities()
+    elif payload['uri'] == '/v2.1/sft/preflight':
+        return preflight_request(payload.get('params', {}))
 
     return {"status_code": 404, "status_message": f"not found handler {payload['uri']}"}
 
