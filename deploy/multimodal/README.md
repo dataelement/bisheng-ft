@@ -20,7 +20,9 @@ docker compose ps
 
 首次下载需要访问所配置的 Hugging Face 端点。断开后重新运行相同命令可续传，脚本固定权重修订并验证 SHA-256。仅安装文本模型可执行 `docker compose --profile tools run --rm download --model Qwen3-0.6B`。命令行不应包含账号密码；私有仓库访问凭证由企业管理员单独配置。
 
-使用服务器实际内网地址检查 `/health`、`/v2.1/sft/model`、`/v2.1/sft/capabilities`；状态码 200 且模型 `ready=true` 后，在毕昇「模型微调」登记该 HTTP 地址。Bisheng 后端必须能访问 FT，FT 必须能访问平台返回的对象存储数据 URL。服务只应开放给可信内网的平台后端；本服务不提供公网登录入口。
+使用服务器实际内网地址检查 `/health`、`/v2.1/sft/model`、`/v2.1/sft/capabilities`；状态码 200 且模型 `ready=true` 后，在毕昇「模型微调」登记该 HTTP 地址。Bisheng 后端必须能访问 FT。服务只应开放给可信内网的平台后端；本服务不提供公网登录入口，接口本身不做身份校验。
+
+训练数据和验证图片 / 视频有两种送达方式，由平台每次提交时自动选择：FT 能下载平台存储链接时由 FT 下载（拉取）；下载不到时由平台推送给 FT（直传，`PUT /v2.1/sft/files/{sha256}`）。所以 FT 访问不到毕昇的对象存储也能用，不必为此单独开放 GPU 服务器到毕昇的访问。直传的文件按内容哈希保存在 `OUTPUT_DIR/_uploads/`，删除任务不会清理，磁盘紧张时在没有任务运行时手动清理。
 
 ## 登记和分配模型
 

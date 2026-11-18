@@ -14,6 +14,7 @@ from typing import Any
 import requests
 import yaml
 
+import uploads
 from artifacts import build_artifact_report
 from capabilities import get_capability
 from dataset_package import validate_multimodal_zip, validate_text_json, validate_media, _read_records, _safe_member
@@ -24,6 +25,13 @@ class V2RuntimeError(RuntimeError):
 
 
 def _download(url: str, destination: Path) -> None:
+    try:
+        pushed = uploads.resolve(url)
+    except uploads.UploadError as exc:
+        raise V2RuntimeError(str(exc)) from exc
+    if pushed is not None:
+        shutil.copyfile(pushed, destination)
+        return
     if urlparse(url).scheme not in {"http", "https"}:
         raise V2RuntimeError("dataset/media URL must use HTTP or HTTPS")
     limit = int(os.getenv("BISHENG_FT_MAX_PACKAGE_BYTES", str(20 * 1024 * 1024)))

@@ -15,11 +15,13 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlparse
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from fastapi.responses import JSONResponse
 
+import uploads
 from capabilities import CapabilityError, get_capability, public_capabilities
 from dataset_package import DatasetPackageError
 from preflight import run_preflight, model_weights_ready
@@ -62,6 +64,7 @@ def response(data=None):
 @asynccontextmanager
 async def lifespan(_app):
     ROOT.mkdir(parents=True, exist_ok=True)
+    uploads.configure(ROOT / '_uploads')
     with (ROOT / '.service.lock').open('w') as handle:
         fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         for path in ROOT.glob('*/service-state.json'):
@@ -99,6 +102,11 @@ class Create(BaseModel):
     params: dict
 
 
+class Probe(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    url: str = Field(min_length=1, max_length=8192)
+
+
 class Generation(BaseModel):
     model_config = ConfigDict(extra='forbid')
     max_new_tokens: int = Field(default=160, ge=1, le=512)
@@ -114,7 +122,29 @@ class Inference(BaseModel):
 
 @app.get('/health')
 def health():
-    return response({'contract_version': 2, 'active_job_id': active_job, 'inference_busy': inference_busy})
+    return response({'contract_version': 2, 'active_job_id': active_job, 'inference_busy': inference_busy,
+                     'transfer_modes': ['pull', 'push']})
+
+
+@app.post('/v2.1/sft/probe')
+def probe(request: Probe):
+    """Tell the platform whether this host can download its storage links; it pushes the bytes when not."""
+    if urlparse(request.url).scheme not in {'http', 'https'}:
+        raise HTTPException(422, 'probe URL must use HTTP or HTTPS')
+    try:
+        with requests.get(request.url, stream=True, timeout=(5, 10)) as result:
+            next(result.iter_content(1024), b'')
+            return response({'reachable': result.ok, 'status': result.status_code})
+    except requests.RequestException as exc:
+        return response({'reachable': False, 'status': None, 'reason': type(exc).__name__})
+
+
+@app.put('/v2.1/sft/files/{sha256}')
+async def upload(sha256: str, request: Request):
+    try:
+        return response(await uploads.store(sha256, request.stream()))
+    except uploads.UploadError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @app.get('/v2.1/sft/capabilities')
