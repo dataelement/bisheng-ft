@@ -115,3 +115,11 @@ def test_epoch_training_does_not_force_positive_step_limit(tmp_path):
     assert config['max_steps'] == -1
     assert config['num_train_epochs'] == 3
     assert config['enable_thinking'] is False
+
+
+def test_inference_prompt_keeps_a_single_media_placeholder():
+    from inference_runner import build_prompt
+    assert build_prompt('What color?', 'image') == '<image>What color?'
+    assert build_prompt('<image>What color?', 'image') == '<image>What color?'
+    assert build_prompt('<video>Which way?', 'video') == '<video>Which way?'
+    assert build_prompt('Classify this', None) == 'Classify this'

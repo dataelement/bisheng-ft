@@ -5,6 +5,12 @@ import os
 from pathlib import Path
 
 
+def build_prompt(prompt, kind):
+    """Add the media placeholder once; prompts copied from training data often carry it already."""
+    placeholder = f'<{kind}>' if kind else ''
+    return prompt if not placeholder or placeholder in prompt else placeholder + prompt
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--request', required=True)
@@ -24,7 +30,7 @@ def main():
     model = ChatModel(options)
     kind = {'image_text': 'image', 'video_text': 'video'}.get(request['data_type'])
     kwargs = {kind + 's': [request['media_path']]} if kind else {}
-    prompt = (f'<{kind}>' if kind else '') + request['prompt']
+    prompt = build_prompt(request['prompt'], kind)
     response = model.chat([{'role': 'user', 'content': prompt}], do_sample=False,
                           max_new_tokens=request.get('generation', {}).get('max_new_tokens', 160), **kwargs)[0]
     result = {'completed': True, 'answer': response.response_text, 'finish_reason': response.finish_reason,
