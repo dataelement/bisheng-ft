@@ -206,3 +206,15 @@ def test_plan_with_too_many_files_is_refused_before_downloading(tmp_path, storag
     with pytest.raises(v2_runtime.V2RuntimeError, match='more files'):
         v2_runtime.prepare_dataset(['x'], 'image_text', train, source())
     assert opened == []
+
+
+@pytest.mark.parametrize(('rows', 'columns'), [
+    ([{'instruction': 'q', 'output': 'a'}], {'prompt': 'instruction', 'response': 'output'}),
+    ([{'instruction': 'q', 'output': 'a'}, {'instruction': 'q', 'input': 'x', 'output': 'a', 'system': 's'}],
+     {'prompt': 'instruction', 'response': 'output', 'query': 'input', 'system': 'system'}),
+])
+def test_alpaca_rows_without_optional_fields_name_only_present_columns(tmp_path, rows, columns):
+    # LlamaFactory raised KeyError: 'input' for rows that only had instruction and output.
+    (tmp_path / 'train.json').write_text(json.dumps(rows))
+    v2_runtime._write_dataset_info(tmp_path, 'text')
+    assert json.loads((tmp_path / 'dataset_info.json').read_text())['bisheng_train']['columns'] == columns

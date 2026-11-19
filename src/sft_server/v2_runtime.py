@@ -121,6 +121,12 @@ def _write_dataset_info(data_dir: Path, data_type: str) -> None:
         info = {"file_name": "train.json"}
         if records and "messages" in records[0]:
             info.update({"formatting": "sharegpt", "columns": {"messages": "messages"}})
+        else:
+            # Alpaca rows may omit optional fields; LlamaFactory looks up every default column it is not told about.
+            present = {key for record in records for key in record}
+            columns = {"prompt": "instruction", "response": "output"}
+            columns.update({column: key for column, key in (("query", "input"), ("system", "system"), ("history", "history")) if key in present})
+            info["columns"] = columns
     if info.get("formatting") == "sharegpt":
         info["tags"] = {
             "role_tag": "role",
