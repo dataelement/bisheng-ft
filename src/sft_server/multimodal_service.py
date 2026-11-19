@@ -19,8 +19,10 @@ from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+import remote_source
 import uploads
 from capabilities import CapabilityError, get_capability, public_capabilities
 from dataset_package import DatasetPackageError
@@ -84,7 +86,14 @@ app = FastAPI(title='Bisheng FT text, image and video service', version='2.1.0',
 
 @app.exception_handler(ValidationError)
 def invalid_payload(_request, exc):
-    return JSONResponse(status_code=422, content={'detail': exc.errors(include_context=False)})
+    return JSONResponse(status_code=422, content={'detail': exc.errors(include_context=False, include_input=False)})
+
+
+@app.exception_handler(RequestValidationError)
+def invalid_request(_request, exc):
+    # FastAPI echoes the request body by default; job requests can carry data-source secrets.
+    detail = [{key: value for key, value in error.items() if key not in ('input', 'ctx')} for error in exc.errors()]
+    return JSONResponse(status_code=422, content={'detail': detail})
 
 
 class Preflight(BaseModel):
@@ -107,6 +116,12 @@ class Probe(BaseModel):
     url: str = Field(min_length=1, max_length=8192)
 
 
+class SourceCheck(BaseModel):
+    model_config = ConfigDict(extra='forbid', hide_input_in_errors=True)
+    source: dict
+    probe: str = Field(min_length=1, max_length=2048)
+
+
 class Generation(BaseModel):
     model_config = ConfigDict(extra='forbid')
     max_new_tokens: int = Field(default=160, ge=1, le=512)
@@ -123,7 +138,7 @@ class Inference(BaseModel):
 @app.get('/health')
 def health():
     return response({'contract_version': 2, 'active_job_id': active_job, 'inference_busy': inference_busy,
-                     'transfer_modes': ['pull', 'push']})
+                     'transfer_modes': ['pull', 'push', 'source']})
 
 
 @app.post('/v2.1/sft/probe')
@@ -137,6 +152,15 @@ def probe(request: Probe):
             return response({'reachable': result.ok, 'status': result.status_code})
     except requests.RequestException as exc:
         return response({'reachable': False, 'status': None, 'reason': type(exc).__name__})
+
+
+@app.post('/v2.1/sft/source/check')
+def source_check(request: SourceCheck):
+    """Confirm this host can log in to the customer's storage and read one planned file."""
+    try:
+        return response({'size': remote_source.check(request.source, request.probe)})
+    except remote_source.RemoteSourceError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @app.put('/v2.1/sft/files/{sha256}')
@@ -177,7 +201,7 @@ def preflight(request: Preflight):
     return response(result)
 
 
-def worker(identifier, parameters):
+def worker(identifier, parameters, source=None):
     global active_job
     def cancelled():
         with LOCK:
@@ -191,7 +215,7 @@ def worker(identifier, parameters):
             if value.get('cancel_requested'):
                 os.killpg(process.pid, signal.SIGTERM)
     try:
-        code, detail = run_v2_job(identifier, parameters, directory(identifier), MODELS, started, cancelled)
+        code, detail = run_v2_job(identifier, parameters, directory(identifier), MODELS, started, cancelled, source)
         with LOCK:
             value = state(identifier)
             value.update(detail)
@@ -218,14 +242,24 @@ def worker(identifier, parameters):
 def create(request: Create):
     global active_job
     directory(request.job_id)
-    params = request.params
+    params = dict(request.params)
+    # Secrets for a remote dataset live only in memory for this job; the saved state keeps the public part.
+    source = params.pop('dataset_source', None)
+    if source is not None:
+        if not isinstance(source, dict) or not source.get('probe'):
+            raise HTTPException(422, 'dataset_source requires a probe path')
+        try:
+            remote_source.check(source, source['probe'])
+        except remote_source.RemoteSourceError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        params['dataset_source'] = remote_source.public_view(source)
     if request.options not in ([], ['train']) or params.get('contract_version') != 2:
         raise HTTPException(422, 'this service requires contract_version=2 and train options')
     try:
         capability = get_capability(params.get('capability_id'))
     except CapabilityError as exc:
         raise HTTPException(422, str(exc)) from exc
-    metadata = {'contract_version', 'capability_id', 'data_type', 'finetuning_type', 'model_name_or_path', 'dataset'}
+    metadata = {'contract_version', 'capability_id', 'data_type', 'finetuning_type', 'model_name_or_path', 'dataset', 'dataset_source'}
     parameters = {k: v for k, v in params.items() if k not in metadata}
     if params.get('model_name_or_path') != capability['model_name']:
         raise HTTPException(422, 'model does not match capability')
@@ -242,7 +276,7 @@ def create(request: Create):
         active_job = request.job_id
         save(request.job_id, {'job_id': request.job_id, 'status': 'RUNNING', 'stage': 'preparing', 'params': params,
                               'created_at': datetime.now(timezone.utc).isoformat(), 'reason': ''})
-        threading.Thread(target=worker, args=(request.job_id, params), daemon=True).start()
+        threading.Thread(target=worker, args=(request.job_id, params, source), daemon=True).start()
     return response({'job_id': request.job_id})
 
 

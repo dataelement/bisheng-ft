@@ -10,3 +10,6 @@ torchvision==0.21.0
 torchaudio==2.6.0
 av==16.0.0
 qwen-vl-utils==0.0.14
+# Remote datasets read straight from customer storage (SFTP / S3).
+paramiko==3.5.1
+minio==7.2.18

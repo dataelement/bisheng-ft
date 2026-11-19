@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -11,6 +12,15 @@ from PIL import Image
 
 class DatasetPackageError(ValueError):
     pass
+
+
+def dataset_byte_limit() -> int:
+    # Uncompressed bytes one training dataset may occupy on this host; remote datasets can be large.
+    return int(os.getenv('BISHENG_FT_MAX_DATASET_BYTES', str(200 * 1024 ** 3)))
+
+
+def dataset_file_limit() -> int:
+    return int(os.getenv('BISHENG_FT_MAX_DATASET_FILES', '200000'))
 
 
 def sha256_file(path: Path) -> str:
@@ -89,7 +99,7 @@ def validate_media(path: Path, data_type: str) -> None:
         raise DatasetPackageError(f'invalid media {path.name}: {exc}') from exc
 
 
-def validate_multimodal_zip(source: Path, destination: Path, data_type: str, max_uncompressed_bytes: int = 20 * 1024 * 1024) -> dict[str, Any]:
+def validate_multimodal_zip(source: Path, destination: Path, data_type: str, max_uncompressed_bytes: int | None = None) -> dict[str, Any]:
     if data_type not in ('image_text', 'video_text'):
         raise DatasetPackageError('unsupported data_type')
     destination.mkdir(parents=True, exist_ok=True)
@@ -97,9 +107,10 @@ def validate_multimodal_zip(source: Path, destination: Path, data_type: str, max
         archive = zipfile.ZipFile(source)
     except (OSError, zipfile.BadZipFile) as exc:
         raise DatasetPackageError('dataset is not a valid ZIP') from exc
+    limit = dataset_byte_limit() if max_uncompressed_bytes is None else max_uncompressed_bytes
     with archive:
         members = archive.infolist()
-        if len(members) > 5000 or sum(item.file_size for item in members) > max_uncompressed_bytes:
+        if len(members) > dataset_file_limit() or sum(item.file_size for item in members) > limit:
             raise DatasetPackageError('uncompressed dataset exceeds configured limit')
         names = [item.filename for item in members]
         if len(names) != len(set(names)):
@@ -108,6 +119,15 @@ def validate_multimodal_zip(source: Path, destination: Path, data_type: str, max
             if not _safe_member(item.filename) or (item.external_attr >> 16) & 0o170000 == 0o120000:
                 raise DatasetPackageError(f'unsafe archive member: {item.filename}')
         archive.extractall(destination)
+    report = validate_multimodal_dir(destination, data_type)
+    report['sha256'] = sha256_file(source)
+    return report
+
+
+def validate_multimodal_dir(destination: Path, data_type: str) -> dict[str, Any]:
+    """Check an extracted or downloaded dataset directory: one root manifest plus the media it references."""
+    if data_type not in ('image_text', 'video_text'):
+        raise DatasetPackageError('unsupported data_type')
     manifests = [destination / name for name in ('train.json', 'train.jsonl', 'data.json', 'data.jsonl') if (destination / name).is_file()]
     if len(manifests) != 1:
         raise DatasetPackageError('package must have exactly one root train.json/train.jsonl/data.json/data.jsonl')
@@ -135,8 +155,8 @@ def validate_multimodal_zip(source: Path, destination: Path, data_type: str, max
             count = sum(m['content'].count(f'<{kind}>') for m in record['messages'])
             if not isinstance(media, list) or len(media) != count or (media and field != expected):
                 raise DatasetPackageError(f'record {index} media/placeholders mismatch; audio is excluded')
-    return {'data_type': data_type, 'samples': len(records), 'media': len(referenced), 'sha256': sha256_file(source), 'manifest': str(manifest)}
+    return {'data_type': data_type, 'samples': len(records), 'media': len(referenced), 'sha256': sha256_file(manifest), 'manifest': str(manifest)}
 
 
-def validate_image_text_zip(source: Path, destination: Path, max_uncompressed_bytes: int = 20 * 1024 * 1024) -> dict[str, Any]:
+def validate_image_text_zip(source: Path, destination: Path, max_uncompressed_bytes: int | None = None) -> dict[str, Any]:
     return validate_multimodal_zip(source, destination, 'image_text', max_uncompressed_bytes)

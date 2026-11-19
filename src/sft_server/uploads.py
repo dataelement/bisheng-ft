@@ -22,7 +22,8 @@ def configure(root: Path) -> None:
 
 
 def size_limit() -> int:
-    return int(os.getenv("BISHENG_FT_MAX_PACKAGE_BYTES", str(20 * 1024 * 1024)))
+    # One stored package (pushed or pulled); the platform accepts local uploads up to 2 GiB.
+    return int(os.getenv("BISHENG_FT_MAX_PACKAGE_BYTES", str(2 * 1024 ** 3 + 16 * 1024 ** 2)))
 
 
 def path_for(digest: str) -> Path:

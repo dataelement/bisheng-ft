@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git libglib2.0-
 WORKDIR /opt/llamafactory
 RUN git init && git remote add origin https://github.com/hiyouga/LlamaFactory.git && git fetch --depth 1 origin ${LLAMAFACTORY_REV} && git checkout --detach FETCH_HEAD
 COPY deploy/multimodal/constraints.txt /tmp/constraints.txt
-RUN python -m pip install --no-cache-dir --upgrade pip packaging wheel setuptools hatchling editables && python -m pip install --no-cache-dir --no-build-isolation -c /tmp/constraints.txt -e . qwen-vl-utils requests
+RUN python -m pip install --no-cache-dir --upgrade pip packaging wheel setuptools hatchling editables && python -m pip install --no-cache-dir --no-build-isolation -c /tmp/constraints.txt -e . qwen-vl-utils requests paramiko minio
 # Copy only service code: the legacy src/llamafactory must never shadow the pinned trainer.
 COPY src/sft_server/ /opt/bisheng-ft/service/
 COPY scripts/download_models.py /opt/bisheng-ft/download_models.py
