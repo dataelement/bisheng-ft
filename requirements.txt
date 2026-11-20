@@ -20,6 +20,9 @@ packaging
 pyyaml
 numpy<2.0.0
 av
+pillow
+qwen-vl-utils
+requests
 # sft_server需要的依赖库
 celery[redis]
 cryptography
