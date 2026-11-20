@@ -15,3 +15,11 @@ def test_image_lora_requires_processor(tmp_path):
     report = build_artifact_report(tmp_path, "image_text", "lora")
     assert report["complete"] is False
     assert "processor_config.json|preprocessor_config.json" in report["missing"]
+
+
+def test_full_and_freeze_outputs_need_the_model_weights(tmp_path):
+    (tmp_path / "config.json").write_text("{}")
+    (tmp_path / "tokenizer_config.json").write_text("{}")
+    assert build_artifact_report(tmp_path, "text", "full")["missing"] == ["model.safetensors|model.safetensors.index.json"]
+    (tmp_path / "model.safetensors.index.json").write_text("{}")
+    assert build_artifact_report(tmp_path, "text", "freeze")["complete"]

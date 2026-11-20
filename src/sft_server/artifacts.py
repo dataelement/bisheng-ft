@@ -23,6 +23,9 @@ def build_artifact_report(output_dir: Path, data_type: str, method: str) -> dict
     else:
         processor_groups = [("tokenizer_config.json",)]
     missing = [name for name in required if not (output_dir / name).is_file() or not (output_dir / name).stat().st_size]
+    if method != "lora" and not any((output_dir / name).is_file() for name in ("model.safetensors", "model.safetensors.index.json")):
+        # Freeze and full training save the whole model, in one file or sharded with an index.
+        missing.append("model.safetensors|model.safetensors.index.json")
     for alternatives in processor_groups:
         if not any((output_dir / name).is_file() for name in alternatives):
             missing.append("|".join(alternatives))

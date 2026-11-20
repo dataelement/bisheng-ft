@@ -24,6 +24,8 @@ docker compose ps
 
 训练数据和验证图片 / 视频有两种送达方式，由平台每次提交时自动选择：FT 能下载平台存储链接时由 FT 下载（拉取）；下载不到时由平台推送给 FT（直传，`PUT /v2.1/sft/files/{sha256}`）。所以 FT 访问不到毕昇的对象存储也能用，不必为此单独开放 GPU 服务器到毕昇的访问。直传的文件按内容哈希保存在 `OUTPUT_DIR/_uploads/`，删除任务不会清理，磁盘紧张时在没有任务运行时手动清理。
 
+训练方式：文本模型支持 LoRA、Freeze（只训练最后几层，`freeze_trainable_layers`）和全量；图文、视频模型支持 LoRA 和 Freeze，全量训练单张 24 GB 显卡放不下，能力目录不提供。Freeze 和全量训练产出的是完整模型（Qwen3-0.6B 全量约 2.3 GB、Freeze 约 1.2 GB），新样本推理直接加载任务目录里的模型。
+
 从 FTP / FTPS / SFTP / S3 导入的数据集不经过毕昇：平台只登记清单和每个文件的大小，开始训练时 FT 用本次提交带来的账号密码直接从数据源下载，并核对大小与导入时一致。所以 **GPU 服务器必须能访问该数据源**。接任务前 FT 会先登录数据源并读取一个文件（`POST /v2.1/sft/source/check`），失败时任务不会创建。密码和密钥只在内存里用于这一次下载，不写入任务目录、状态文件或日志。单个数据集默认最多 200 GiB、200,000 个文件，可用 `BISHENG_FT_MAX_DATASET_BYTES`、`BISHENG_FT_MAX_DATASET_FILES` 调整；下载前会检查磁盘至少留出数据集大小加 1 GiB 的空间。平台直传或拉取的单个数据包上限为 2 GiB（`BISHENG_FT_MAX_PACKAGE_BYTES`）。
 
 ## 登记和分配模型

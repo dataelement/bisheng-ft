@@ -1,4 +1,4 @@
-"""Load the pinned trainer's processor, template and adapter in a fresh process."""
+"""Load the pinned trainer's processor, template and adapter (or freeze/full model) in a fresh process."""
 import argparse
 import json
 import os
@@ -25,7 +25,8 @@ def main():
                'video_fps': 2.0, 'video_maxlen': 8}
     if request.get('adapter'):
         options['adapter_name_or_path'] = request['adapter']
-    if Path(request['model_path']).name.startswith('Qwen3-'):
+    # A freeze/full model loads from the job directory, so the base model name comes with the request.
+    if (request.get('base_model') or Path(request['model_path']).name).startswith('Qwen3-'):
         options['enable_thinking'] = False
     model = ChatModel(options)
     kind = {'image_text': 'image', 'video_text': 'video'}.get(request['data_type'])

@@ -158,7 +158,8 @@ def build_train_config(params: dict[str, Any], model_path: Path, data_dir: Path,
     if capability["validation_status"] != "gpu_smoke_passed":
         raise V2RuntimeError("capability has not passed real GPU validation")
     data_type = params["data_type"]
-    if data_type not in capability["input_types"] or params.get("finetuning_type") != "lora":
+    method = params.get("finetuning_type")
+    if data_type not in capability["input_types"] or method not in capability["training_methods"]:
         raise V2RuntimeError("requested modality or training method is not supported")
     config = {
         "stage": "sft",
@@ -167,9 +168,7 @@ def build_train_config(params: dict[str, Any], model_path: Path, data_dir: Path,
         "dataset": "bisheng_train",
         "dataset_dir": str(data_dir),
         "template": capability["template"],
-        "finetuning_type": "lora",
-        "lora_target": "all",
-        "lora_rank": int(params.get("lora_rank", 8)),
+        "finetuning_type": method,
         "output_dir": str(output_dir),
         "overwrite_output_dir": True,
         "cutoff_len": int(params.get("cutoff_len", 1024)),
@@ -195,6 +194,11 @@ def build_train_config(params: dict[str, Any], model_path: Path, data_dir: Path,
         "video_fps": 2.0,
         "video_maxlen": 8,
     }
+    if method == "lora":
+        config.update({"lora_target": "all", "lora_rank": int(params.get("lora_rank", 8))})
+    elif method == "freeze":
+        # Train the last N decoder layers; the vision tower and projector stay frozen as for LoRA.
+        config.update({"freeze_trainable_layers": int(params.get("freeze_trainable_layers", 2)), "freeze_trainable_modules": "all"})
 
     if capability["model_name"].startswith("Qwen3-"):
         config["enable_thinking"] = False
@@ -230,7 +234,7 @@ def run_v2_job(job_id: str, params: dict[str, Any], job_dir: Path, model_root: P
     for name in ("tokenizer_config.json", "preprocessor_config.json", "processor_config.json"):
         if (model_path / name).is_file() and not (output_dir / name).is_file():
             shutil.copy2(model_path / name, output_dir / name)
-    artifacts = build_artifact_report(output_dir, data_type, "lora")
+    artifacts = build_artifact_report(output_dir, data_type, config["finetuning_type"])
     state = {
         "job_id": job_id,
         "exit_code": exit_code,
@@ -252,7 +256,7 @@ def run_inference(job_dir: Path, payload: dict[str, Any]) -> dict[str, Any]:
         raise V2RuntimeError("training state is missing")
     state = json.loads(state_path.read_text(encoding="utf-8"))
     if not state.get("artifacts", {}).get("complete"):
-        raise V2RuntimeError("adapter artifacts are incomplete")
+        raise V2RuntimeError("training artifacts are incomplete")
     request_dir = job_dir / "job_result" / "inference" / uuid.uuid4().hex
     request_dir.mkdir(parents=True)
     request_path = request_dir / "request.json"
@@ -268,7 +272,14 @@ def run_inference(job_dir: Path, payload: dict[str, Any]) -> dict[str, Any]:
     payload["template"] = state.get("config", {}).get("template")
     if not payload["template"]:
         payload["template"] = get_capability(state["capability_id"])["template"] if state.get("capability_id") else "qwen"
-    payload["adapter"] = None if payload.get("baseline") else str(job_dir / "model_output")
+    # LoRA output is an adapter on the base model; freeze and full output a complete model to load instead.
+    payload["base_model"] = Path(state["model_path"]).name
+    payload["adapter"] = None
+    if not payload.get("baseline"):
+        if state.get("config", {}).get("finetuning_type", "lora") == "lora":
+            payload["adapter"] = str(job_dir / "model_output")
+        else:
+            payload["model_path"] = str(job_dir / "model_output")
     request_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     command = [sys.executable, str(Path(__file__).with_name("inference_runner.py")), "--request", str(request_path), "--response", str(response_path)]
     completed = subprocess.run(command, text=True, capture_output=True, timeout=300, env=os.environ.copy())

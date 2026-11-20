@@ -123,3 +123,53 @@ def test_inference_prompt_keeps_a_single_media_placeholder():
     assert build_prompt('<image>What color?', 'image') == '<image>What color?'
     assert build_prompt('<video>Which way?', 'video') == '<video>Which way?'
     assert build_prompt('Classify this', None) == 'Classify this'
+
+
+TEXT = 'qwen3-0.6b-lora-20261102'
+VISION = 'qwen2.5-vl-3b-instruct-lora-20261102'
+
+
+def config_for(capability, data_type, method, **params):
+    return v2_runtime.build_train_config({'capability_id': capability, 'data_type': data_type, 'finetuning_type': method, **params},
+                                         Path('/m'), Path('/d'), Path('/o'))
+
+
+def test_freeze_and_full_configs_carry_only_their_own_settings():
+    freeze = config_for(TEXT, 'text', 'freeze', freeze_trainable_layers=4, lora_rank=16)
+    assert freeze['finetuning_type'] == 'freeze' and freeze['freeze_trainable_layers'] == 4
+    assert 'lora_rank' not in freeze and 'lora_target' not in freeze
+    full = config_for(TEXT, 'text', 'full')
+    assert full['finetuning_type'] == 'full' and 'freeze_trainable_layers' not in full and 'lora_rank' not in full
+    image_freeze = config_for(VISION, 'image_text', 'freeze')
+    assert image_freeze['freeze_trainable_layers'] == 2 and image_freeze['freeze_vision_tower'] is True
+
+
+def test_full_training_of_a_vision_model_is_refused():
+    # Full fine-tuning of the 3B vision model does not fit one 24 GB GPU, so the catalog does not offer it.
+    try:
+        config_for(VISION, 'image_text', 'full')
+    except v2_runtime.V2RuntimeError as exc:
+        assert 'training method' in str(exc)
+    else:
+        raise AssertionError('full training of the vision model must be refused')
+
+
+def test_freeze_model_is_loaded_from_the_job_and_baseline_from_the_base(monkeypatch, tmp_path):
+    job_dir = tmp_path / 'job'
+    (job_dir / 'job_result').mkdir(parents=True)
+    (job_dir / 'job_result' / 'state.json').write_text(json.dumps({
+        'model_path': '/models/Qwen3-0.6B', 'data_type': 'text', 'artifacts': {'complete': True},
+        'config': {'template': 'qwen3', 'finetuning_type': 'freeze'}}))
+    sent = []
+
+    def run(command, **kwargs):
+        request = json.loads(Path(command[command.index('--request') + 1]).read_text())
+        sent.append(request)
+        Path(command[command.index('--response') + 1]).write_text(json.dumps({'completed': True}))
+        return SimpleNamespace(returncode=0, stdout='', stderr='')
+
+    monkeypatch.setattr(v2_runtime.subprocess, 'run', run)
+    v2_runtime.run_inference(job_dir, {'prompt': 'q'})
+    v2_runtime.run_inference(job_dir, {'prompt': 'q', 'baseline': True})
+    assert (sent[0]['model_path'], sent[0]['adapter'], sent[0]['base_model']) == (str(job_dir / 'model_output'), None, 'Qwen3-0.6B')
+    assert (sent[1]['model_path'], sent[1]['adapter']) == ('/models/Qwen3-0.6B', None)

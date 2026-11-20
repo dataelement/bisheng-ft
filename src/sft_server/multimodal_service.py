@@ -100,7 +100,7 @@ class Preflight(BaseModel):
     model_config = ConfigDict(extra='forbid')
     capability_id: str
     data_type: Literal['text', 'image_text', 'video_text']
-    method: Literal['lora']
+    method: Literal['lora', 'freeze', 'full']
     parameters: dict = Field(default_factory=dict)
 
 
