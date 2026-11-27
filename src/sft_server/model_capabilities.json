@@ -1,0 +1,303 @@
+{
+  "contract_version": 2,
+  "models": [
+    {
+      "capability_id": "qwen2.5-1.5b-instruct-text-lora-20261030",
+      "model_name": "Qwen2.5-1.5B-Instruct",
+      "model_source": "Qwen/Qwen2.5-1.5B-Instruct",
+      "input_types": [
+        "text"
+      ],
+      "training_methods": [
+        "lora",
+        "freeze",
+        "full"
+      ],
+      "template": "qwen",
+      "validation_status": "gpu_smoke_passed",
+      "validation_evidence": {
+        "date": "2026-10-30",
+        "gpu": "RTX 3090 24GB",
+        "result": "96-step LoRA and clean-process reload passed"
+      },
+      "parameter_schema": {
+        "max_steps": {
+          "type": "integer",
+          "default": 8,
+          "minimum": -1,
+          "maximum": 10000
+        },
+        "num_train_epochs": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0.1,
+          "maximum": 100
+        },
+        "cutoff_len": {
+          "type": "integer",
+          "default": 1024,
+          "minimum": 128,
+          "maximum": 4096
+        },
+        "per_device_train_batch_size": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 2
+        },
+        "gradient_accumulation_steps": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 64
+        },
+        "lora_rank": {
+          "type": "integer",
+          "default": 8,
+          "enum": [
+            8,
+            16,
+            32
+          ]
+        },
+        "learning_rate": {
+          "type": "number",
+          "default": 0.0001,
+          "minimum": 1e-06,
+          "maximum": 0.001
+        },
+        "freeze_trainable_layers": {
+          "type": "integer",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 8
+        }
+      }
+    },
+    {
+      "capability_id": "qwen2-vl-2b-instruct-image-text-lora-20261030",
+      "model_name": "Qwen2-VL-2B-Instruct",
+      "model_source": "Qwen/Qwen2-VL-2B-Instruct",
+      "input_types": [
+        "image_text"
+      ],
+      "training_methods": [
+        "lora",
+        "freeze"
+      ],
+      "template": "qwen2_vl",
+      "validation_status": "gpu_smoke_passed",
+      "validation_evidence": {
+        "date": "2026-10-30",
+        "gpu": "RTX 3090 24GB",
+        "result": "32-step multimodal LoRA and clean-process new-image reload passed"
+      },
+      "parameter_schema": {
+        "max_steps": {
+          "type": "integer",
+          "default": 8,
+          "minimum": -1,
+          "maximum": 10000
+        },
+        "num_train_epochs": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0.1,
+          "maximum": 100
+        },
+        "cutoff_len": {
+          "type": "integer",
+          "default": 1024,
+          "minimum": 128,
+          "maximum": 4096
+        },
+        "per_device_train_batch_size": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 2
+        },
+        "gradient_accumulation_steps": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 64
+        },
+        "lora_rank": {
+          "type": "integer",
+          "default": 8,
+          "enum": [
+            8,
+            16,
+            32
+          ]
+        },
+        "learning_rate": {
+          "type": "number",
+          "default": 0.0001,
+          "minimum": 1e-06,
+          "maximum": 0.001
+        },
+        "freeze_trainable_layers": {
+          "type": "integer",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 8
+        }
+      }
+    },
+    {
+      "capability_id": "qwen3-0.6b-lora-20261102",
+      "model_name": "Qwen3-0.6B",
+      "model_source": "Qwen/Qwen3-0.6B",
+      "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+      "input_types": [
+        "text"
+      ],
+      "training_methods": [
+        "lora",
+        "freeze",
+        "full"
+      ],
+      "template": "qwen3",
+      "validation_status": "gpu_smoke_passed",
+      "validation_evidence": {
+        "date": "2026-11-02",
+        "scope": "Formal FT contract, customer Dockerfile/Compose, real GPU LoRA and fresh-process reload; business quality not accepted",
+        "jobs": [
+          "formal-text-fdad56f6"
+        ]
+      },
+      "parameter_schema": {
+        "max_steps": {
+          "type": "integer",
+          "default": 8,
+          "minimum": -1,
+          "maximum": 10000
+        },
+        "num_train_epochs": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0.1,
+          "maximum": 100
+        },
+        "cutoff_len": {
+          "type": "integer",
+          "default": 1024,
+          "minimum": 128,
+          "maximum": 4096
+        },
+        "per_device_train_batch_size": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 2
+        },
+        "gradient_accumulation_steps": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 64
+        },
+        "lora_rank": {
+          "type": "integer",
+          "default": 8,
+          "enum": [
+            8,
+            16,
+            32
+          ]
+        },
+        "learning_rate": {
+          "type": "number",
+          "default": 0.0001,
+          "minimum": 1e-06,
+          "maximum": 0.001
+        },
+        "freeze_trainable_layers": {
+          "type": "integer",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 8
+        }
+      }
+    },
+    {
+      "capability_id": "qwen2.5-vl-3b-instruct-lora-20261102",
+      "model_name": "Qwen2.5-VL-3B-Instruct",
+      "model_source": "Qwen/Qwen2.5-VL-3B-Instruct",
+      "revision": "66285546d2b821cf421d4f5eb2576359d3770cd3",
+      "input_types": [
+        "image_text",
+        "video_text"
+      ],
+      "training_methods": [
+        "lora",
+        "freeze"
+      ],
+      "template": "qwen2_vl",
+      "validation_status": "gpu_smoke_passed",
+      "validation_evidence": {
+        "date": "2026-11-02",
+        "scope": "Formal FT contract, customer Dockerfile/Compose, real GPU LoRA and fresh-process reload; business quality not accepted",
+        "jobs": [
+          "formal-image-a96cc5ab",
+          "formal-video-71bbb576"
+        ]
+      },
+      "parameter_schema": {
+        "max_steps": {
+          "type": "integer",
+          "default": 8,
+          "minimum": -1,
+          "maximum": 10000
+        },
+        "num_train_epochs": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0.1,
+          "maximum": 100
+        },
+        "cutoff_len": {
+          "type": "integer",
+          "default": 1024,
+          "minimum": 128,
+          "maximum": 4096
+        },
+        "per_device_train_batch_size": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 2
+        },
+        "gradient_accumulation_steps": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 64
+        },
+        "lora_rank": {
+          "type": "integer",
+          "default": 8,
+          "enum": [
+            8,
+            16,
+            32
+          ]
+        },
+        "learning_rate": {
+          "type": "number",
+          "default": 0.0001,
+          "minimum": 1e-06,
+          "maximum": 0.001
+        },
+        "freeze_trainable_layers": {
+          "type": "integer",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 8
+        }
+      }
+    }
+  ]
+}
