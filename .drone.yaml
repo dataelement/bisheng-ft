@@ -58,8 +58,7 @@ steps: # 定义流水线执行步骤，这些步骤将顺序执行
     commands:
       - docker login -u $cr_user -p $cr_password $cr_repo_host
       - docker login -u $docker_user -p $docker_password
-      - cd docker/docker-cuda/
-      - docker build -t $docker_repo:$version -f ./Dockerfile ../..
+      - docker build --label org.opencontainers.image.source=https://github.com/dataelement/bisheng-ft --label org.opencontainers.image.revision=$DRONE_COMMIT --label org.opencontainers.image.version=$version -t $docker_repo:$version -f deploy/multimodal/Dockerfile .
       - docker push $docker_repo:$version
       - docker tag $docker_repo:$version $cr_repo_host/$docker_repo:$version
       - docker tag $docker_repo:$version $docker_repo:latest
